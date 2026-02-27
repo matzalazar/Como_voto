@@ -1,0 +1,969 @@
+/* ==========================================================================
+   Como Voto - Styles
+   ========================================================================== */
+
+:root {
+    /* Colors */
+    --color-bg: #f8f9fa;
+    --color-surface: #ffffff;
+    --color-text: #1a1a2e;
+    --color-text-secondary: #6b7280;
+    --color-border: #e5e7eb;
+    --color-primary: #3b82f6;
+    --color-primary-hover: #2563eb;
+
+    /* Party colors */
+    --color-pj: #1e88e5;
+    --color-pro: #fdd835;
+    --color-lla: #7b1fa2;
+    --color-other: #78909c;
+
+    /* Vote colors */
+    --color-afirmativo: #22c55e;
+    --color-negativo: #ef4444;
+    --color-abstencion: #f59e0b;
+    --color-ausente: #94a3b8;
+    --color-presidente: #8b5cf6;
+
+    /* Layout */
+    --max-width: 1200px;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+    --transition: 0.2s ease;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ====== HEADER ====== */
+.header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: white;
+    padding: 2rem 0;
+    text-align: center;
+}
+
+.header-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logo {
+    font-size: 2rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logo-icon {
+    font-size: 2.5rem;
+}
+
+.subtitle {
+    color: rgba(255,255,255,0.7);
+    font-size: 1rem;
+    font-weight: 300;
+}
+
+/* ====== SEARCH ====== */
+.search-section {
+    padding: 2rem 0 1rem;
+}
+
+.search-box {
+    position: relative;
+    max-width: 600px;
+    margin: 0 auto 1.5rem;
+}
+
+.search-label {
+    display: block;
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-icon {
+    position: absolute;
+    left: 1rem;
+    width: 20px;
+    height: 20px;
+    color: var(--color-text-secondary);
+    pointer-events: none;
+}
+
+#search-input {
+    width: 100%;
+    padding: 0.875rem 2.5rem 0.875rem 3rem;
+    font-size: 1rem;
+    font-family: inherit;
+    border: 2px solid var(--color-border);
+    border-radius: 50px;
+    background: var(--color-surface);
+    transition: border-color var(--transition), box-shadow var(--transition);
+    outline: none;
+}
+
+#search-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.clear-btn {
+    position: absolute;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: 0.25rem;
+    line-height: 1;
+    display: none;
+}
+
+#search-input:not(:placeholder-shown) + .clear-btn {
+    display: block;
+}
+
+.search-results {
+    position: absolute;
+    top: calc(100%);
+    left: 0;
+    right: 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.search-result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--color-border);
+    transition: background var(--transition);
+    gap: 0.75rem;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item:hover {
+    background: #f0f7ff;
+}
+
+.search-result-name {
+    font-weight: 500;
+    flex: 1;
+}
+
+.search-result-meta {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.search-result-meta .badge {
+    font-size: 0.7rem;
+}
+
+/* ====== FILTERS ====== */
+.filters {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-group label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+}
+
+.filter-group select {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    font-family: inherit;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    cursor: pointer;
+    outline: none;
+}
+
+.filter-group select:focus {
+    border-color: var(--color-primary);
+}
+
+/* ====== BADGES ====== */
+.badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.badge-pj {
+    background: rgba(30, 136, 229, 0.12);
+    color: var(--color-pj);
+}
+
+.badge-pro {
+    background: rgba(253, 216, 53, 0.2);
+    color: #9a8700;
+}
+
+.badge-lla {
+    background: rgba(123, 31, 162, 0.12);
+    color: var(--color-lla);
+}
+
+.badge-other {
+    background: rgba(120, 144, 156, 0.12);
+    color: var(--color-other);
+}
+
+.badge-diputados {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--color-primary);
+}
+
+.badge-senadores {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+.badge-both {
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.1), rgba(239, 68, 68, 0.1));
+    color: #7c3aed;
+}
+
+/* ====== STATS BAR ====== */
+.stats-bar {
+    padding: 1.5rem 0;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.stat-card {
+    background: var(--color-surface);
+    padding: 1.25rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+}
+
+/* ====== LEGISLATOR DETAIL ====== */
+.legislator-detail {
+    padding: 1rem 0 3rem;
+}
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all var(--transition);
+    margin-bottom: 1.5rem;
+    color: var(--color-text);
+}
+
+.back-btn:hover {
+    background: var(--color-bg);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+/* Legislator Header */
+.leg-header {
+    background: var(--color-surface);
+    padding: 2rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.leg-name {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.leg-meta {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.leg-alignment-summary {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.alignment-card {
+    text-align: center;
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    min-width: 120px;
+}
+
+.alignment-card .alignment-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+}
+
+.alignment-card .alignment-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+}
+
+.alignment-pj .alignment-label { color: var(--color-pj); }
+.alignment-pj .alignment-value { color: var(--color-pj); }
+.alignment-pro .alignment-label { color: #9a8700; }
+.alignment-pro .alignment-value { color: #9a8700; }
+.alignment-lla .alignment-label { color: var(--color-lla); }
+.alignment-lla .alignment-value { color: var(--color-lla); }
+
+/* ====== WAFFLE VISUALIZATION ====== */
+.waffle-section {
+    background: var(--color-surface);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+}
+
+.waffle-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.waffle-toolbar h3 {
+    font-size: 1.1rem;
+}
+
+.waffle-controls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.waffle-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.waffle-filter-group label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+}
+
+.waffle-filter-group select,
+.waffle-filter-group input {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.85rem;
+    font-family: inherit;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    outline: none;
+}
+
+.waffle-filter-group input {
+    width: 180px;
+}
+
+.waffle-filter-group select:focus,
+.waffle-filter-group input:focus {
+    border-color: var(--color-primary);
+}
+
+.waffle-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-share {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    font-family: inherit;
+    font-weight: 500;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    cursor: pointer;
+    transition: all var(--transition);
+    color: var(--color-text);
+    white-space: nowrap;
+}
+
+.btn-share:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: #f0f7ff;
+}
+
+.btn-share:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.btn-share-tw:hover {
+    border-color: #1d9bf0;
+    color: #1d9bf0;
+    background: rgba(29, 155, 240, 0.05);
+}
+
+/* Waffle Card (the exportable part) */
+.waffle-card {
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    overflow: hidden;
+}
+
+.waffle-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.waffle-card-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.waffle-card-meta {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Waffle law rows */
+.waffle-law-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.waffle-law-row:last-child {
+    border-bottom: none;
+}
+
+.waffle-law-label {
+    min-width: 200px;
+    max-width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.waffle-law-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text);
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.waffle-law-year {
+    font-size: 0.7rem;
+    color: var(--color-text-secondary);
+    font-weight: 400;
+}
+
+.waffle-tiles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    flex: 1;
+}
+
+.waffle-tile {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: default;
+    transition: transform 0.1s ease;
+}
+
+.waffle-tile:hover {
+    transform: scale(1.15);
+    z-index: 2;
+}
+
+.tile-AFIRMATIVO {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.tile-NEGATIVO {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.tile-ABSTENCION {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.tile-AUSENTE {
+    background: #f1f5f9;
+    color: #94a3b8;
+}
+
+.tile-PRESIDENTE {
+    background: #ede9fe;
+    color: #7c3aed;
+}
+
+/* Waffle legend */
+.waffle-legend {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #f1f5f9;
+    flex-wrap: wrap;
+}
+
+.waffle-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+}
+
+.waffle-tile-legend {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.waffle-card-footer {
+    text-align: right;
+    font-size: 0.65rem;
+    color: #d1d5db;
+    margin-top: 0.5rem;
+    font-weight: 500;
+}
+
+.waffle-empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+}
+
+/* ====== CHARTS ====== */
+.charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.chart-card {
+    background: var(--color-surface);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.chart-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+}
+
+.chart-desc {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 1rem;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+}
+
+/* ====== VOTES TABLE ====== */
+.votes-section {
+    background: var(--color-surface);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.votes-section h3 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.votes-filters {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.votes-filters select,
+.votes-law-input {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    font-family: inherit;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    cursor: pointer;
+    outline: none;
+}
+
+.votes-law-input {
+    min-width: 180px;
+    cursor: text;
+}
+
+.votes-law-input:focus,
+.votes-filters select:focus {
+    border-color: var(--color-primary);
+}
+
+.votes-table-wrapper {
+    overflow-x: auto;
+}
+
+.votes-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.votes-table th {
+    text-align: left;
+    padding: 0.75rem;
+    border-bottom: 2px solid var(--color-border);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.votes-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+}
+
+.votes-table tr:hover {
+    background: #f9fafb;
+}
+
+.vote-title {
+    font-size: 0.85rem;
+    line-height: 1.35;
+}
+
+.vote-article {
+    font-size: 0.7rem;
+    color: var(--color-text-secondary);
+    margin-top: 0.15rem;
+}
+
+.vote-chip {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.vote-AFIRMATIVO { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
+.vote-NEGATIVO { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+.vote-ABSTENCION { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+.vote-AUSENTE { background: rgba(148, 163, 184, 0.12); color: #64748b; }
+.vote-PRESIDENTE { background: rgba(139, 92, 246, 0.12); color: #7c3aed; }
+.vote-NA { background: rgba(148, 163, 184, 0.08); color: #94a3b8; }
+
+/* Pagination */
+.votes-pagination {
+    display: flex;
+    justify-content: center;
+    gap: 0.25rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.votes-pagination button {
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.votes-pagination button:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.votes-pagination button.active {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+/* ====== FOOTER ====== */
+.footer {
+    background: var(--color-text);
+    color: rgba(255,255,255,0.7);
+    padding: 2rem 0;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
+.footer a {
+    color: rgba(255,255,255,0.9);
+}
+
+.footer p + p {
+    margin-top: 0.5rem;
+}
+
+/* ====== RESPONSIVE ====== */
+@media (max-width: 768px) {
+    .header {
+        padding: 1.5rem 0;
+    }
+
+    .logo {
+        font-size: 1.5rem;
+    }
+
+    .charts-row {
+        grid-template-columns: 1fr;
+    }
+
+    .leg-header {
+        flex-direction: column;
+    }
+
+    .leg-alignment-summary {
+        width: 100%;
+        justify-content: space-around;
+    }
+
+    .waffle-toolbar {
+        flex-direction: column;
+    }
+
+    .waffle-law-label {
+        min-width: 130px;
+        max-width: 160px;
+    }
+
+    .waffle-tile {
+        width: 24px;
+        height: 24px;
+        font-size: 0.65rem;
+    }
+
+    .waffle-card-name {
+        font-size: 1rem;
+    }
+
+    .votes-table {
+        font-size: 0.8rem;
+    }
+
+    .votes-table th,
+    .votes-table td {
+        padding: 0.4rem;
+    }
+
+    .stat-card {
+        padding: 1rem;
+    }
+
+    .stat-number {
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 0 1rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .alignment-card {
+        min-width: 90px;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .alignment-card .alignment-value {
+        font-size: 1.25rem;
+    }
+
+    .waffle-law-row {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .waffle-law-label {
+        min-width: unset;
+        max-width: unset;
+    }
+
+    .waffle-controls {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .waffle-filter-group input {
+        width: 100%;
+    }
+
+    .waffle-actions {
+        width: 100%;
+    }
+
+    .waffle-actions .btn-share {
+        flex: 1;
+        justify-content: center;
+    }
+}
+
+/* ====== SCROLLBAR ====== */
+.search-results::-webkit-scrollbar {
+    width: 6px;
+}
+
+.search-results::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.search-results::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+}
+
+.search-results::-webkit-scrollbar-thumb:hover {
+    background: #adb5bd;
+}

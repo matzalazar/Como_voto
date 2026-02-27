@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¿Cómo Votó? - Votaciones del Congreso Argentino</title>
+    <meta name="description" content="Visualización interactiva de cómo votan los Diputados y Senadores de la Nación Argentina, y su alineamiento con los principales partidos políticos.">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <!-- html2canvas for image export -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- ============ HEADER ============ -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <h1 class="logo">
+                    <span class="logo-icon">🗳️</span>
+                    ¿Cómo Votó?
+                </h1>
+                <p class="subtitle">Votaciones del Congreso de la Nación Argentina</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- ============ SEARCH SECTION ============ -->
+    <section class="search-section">
+        <div class="container">
+            <div class="search-box">
+                <label for="search-input" class="search-label">Buscá un Diputado/a o Senador/a</label>
+                <div class="search-input-wrapper">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input type="text" id="search-input" placeholder="Nombre, bloque o provincia..." autocomplete="off">
+                    <button id="clear-search" class="clear-btn" aria-label="Limpiar búsqueda">&times;</button>
+                </div>
+                <div id="search-results" class="search-results hidden"></div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters">
+                <div class="filter-group">
+                    <label for="filter-chamber">Cámara</label>
+                    <select id="filter-chamber">
+                        <option value="">Todas</option>
+                        <option value="diputados">Diputados</option>
+                        <option value="senadores">Senadores</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filter-coalition">Coalición</label>
+                    <select id="filter-coalition">
+                        <option value="">Todas</option>
+                        <option value="PJ">PJ / Unión por la Patria</option>
+                        <option value="PRO">PRO / JxC / UCR</option>
+                        <option value="LLA">La Libertad Avanza</option>
+                        <option value="OTHER">Otros</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ STATS BAR ============ -->
+    <section class="stats-bar" id="stats-bar">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-number" id="stat-legislators">-</span>
+                    <span class="stat-label">Legisladores</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="stat-votaciones">-</span>
+                    <span class="stat-label">Votaciones</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="stat-years">-</span>
+                    <span class="stat-label">Años cubiertos</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="stat-updated">-</span>
+                    <span class="stat-label">Última actualización</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ LEGISLATOR DETAIL ============ -->
+    <section class="legislator-detail hidden" id="legislator-detail">
+        <div class="container">
+            <!-- Back button -->
+            <button class="back-btn" id="back-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <path d="m15 18-6-6 6-6"></path>
+                </svg>
+                Volver a la búsqueda
+            </button>
+
+            <!-- Legislator Header -->
+            <div class="leg-header" id="leg-header">
+                <div class="leg-info">
+                    <h2 class="leg-name" id="leg-name"></h2>
+                    <div class="leg-meta">
+                        <span class="leg-chamber badge" id="leg-chamber"></span>
+                        <span class="leg-bloc badge" id="leg-bloc"></span>
+                        <span class="leg-province badge" id="leg-province"></span>
+                    </div>
+                </div>
+                <div class="leg-alignment-summary" id="leg-alignment-summary">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- ======== WAFFLE VISUALIZATION CARD ======== -->
+            <div class="waffle-section" id="waffle-section">
+                <div class="waffle-toolbar">
+                    <h3>Votaciones por ley</h3>
+                    <div class="waffle-controls">
+                        <div class="waffle-filter-group">
+                            <label for="waffle-year-filter">Año</label>
+                            <select id="waffle-year-filter">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="waffle-filter-group">
+                            <label for="waffle-law-filter">Ley</label>
+                            <input type="text" id="waffle-law-filter" placeholder="Filtrar por nombre de ley..." autocomplete="off">
+                        </div>
+                        <div class="waffle-actions">
+                            <button class="btn-share" id="btn-copy-image" title="Copiar imagen al portapapeles">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                Copiar imagen
+                            </button>
+                            <button class="btn-share btn-share-tw" id="btn-share-tw" title="Compartir en X (Twitter)">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                                Compartir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- The exportable card -->
+                <div class="waffle-card" id="waffle-card">
+                    <div class="waffle-card-header" id="waffle-card-header">
+                        <div class="waffle-card-name" id="waffle-card-name"></div>
+                        <div class="waffle-card-meta" id="waffle-card-meta"></div>
+                    </div>
+                    <div class="waffle-card-body" id="waffle-card-body">
+                        <!-- Filled by JS: law rows with tile grids -->
+                    </div>
+                    <div class="waffle-legend">
+                        <span class="waffle-legend-item"><span class="waffle-tile-legend tile-AFIRMATIVO"></span> Afirmativo</span>
+                        <span class="waffle-legend-item"><span class="waffle-tile-legend tile-NEGATIVO"></span> Negativo</span>
+                        <span class="waffle-legend-item"><span class="waffle-tile-legend tile-ABSTENCION"></span> Abstención</span>
+                        <span class="waffle-legend-item"><span class="waffle-tile-legend tile-AUSENTE"></span> Ausente</span>
+                    </div>
+                    <div class="waffle-card-footer">comovoto.ar</div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="charts-row">
+                <div class="chart-card chart-large">
+                    <h3>Alineamiento con partidos por año</h3>
+                    <p class="chart-desc">Porcentaje de veces que votó igual que la mayoría de cada coalición</p>
+                    <div class="chart-container">
+                        <canvas id="chart-alignment"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card chart-medium">
+                    <h3>Votaciones por año</h3>
+                    <p class="chart-desc">Distribución de votos por tipo</p>
+                    <div class="chart-container">
+                        <canvas id="chart-yearly"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vote History Table -->
+            <div class="votes-section">
+                <h3>Historial de votos</h3>
+                <div class="votes-filters">
+                    <select id="votes-year-filter">
+                        <option value="">Todos los años</option>
+                    </select>
+                    <select id="votes-type-filter">
+                        <option value="">Todos los votos</option>
+                        <option value="AFIRMATIVO">Afirmativo</option>
+                        <option value="NEGATIVO">Negativo</option>
+                        <option value="ABSTENCION">Abstención</option>
+                        <option value="AUSENTE">Ausente</option>
+                    </select>
+                    <input type="text" id="votes-law-filter" placeholder="Filtrar por ley..." class="votes-law-input">
+                </div>
+                <div class="votes-table-wrapper">
+                    <table class="votes-table" id="votes-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Ley / Votación</th>
+                                <th>Voto</th>
+                                <th>PJ votó</th>
+                                <th>PRO votó</th>
+                                <th>LLA votó</th>
+                            </tr>
+                        </thead>
+                        <tbody id="votes-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="votes-pagination" id="votes-pagination"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ FOOTER ============ -->
+    <footer class="footer">
+        <div class="container">
+            <p>
+                Los datos provienen de
+                <a href="https://votaciones.hcdn.gob.ar/" target="_blank">votaciones.hcdn.gob.ar</a> y
+                <a href="https://www.senado.gob.ar/votaciones/actas" target="_blank">senado.gob.ar</a>.
+                La información es de dominio público.
+            </p>
+            <p>
+                <a href="https://github.com/" target="_blank">Código fuente en GitHub</a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,1815 @@
+{
+  "id": "57",
+  "chamber": "diputados",
+  "url": "https://votaciones.hcdn.gob.ar/votacion/57",
+  "title": "Prohibición de indultos, amnistías y conmutación de penas en delitos de lesa humanidad.",
+  "date": "19/11/2014 - 20:16",
+  "result": "AFIRMATIVO",
+  "period": "",
+  "type": "",
+  "afirmativo": 0,
+  "negativo": 16,
+  "abstencion": 67,
+  "ausente": 0,
+  "votes": [
+    {
+      "name": "ABDALA DE MATARAZZO, Norma Amanda",
+      "bloc": "Frente Cívico por Santiago",
+      "province": "Santiago del Estero",
+      "vote": "PRESIDENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ABRAHAM, Alejandro",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Mendoza",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "AGUAD, Oscar Raúl",
+      "bloc": "Unión Cívica Radical",
+      "province": "Córdoba",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "AGUILAR, Lino Walter",
+      "bloc": "Compromiso Federal",
+      "province": "San Luis",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "ALEGRE, Gilberto Oscar",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ALFONSÍN, Ricardo",
+      "bloc": "Unión Cívica Radical",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "ALONSO, Laura",
+      "bloc": "Unión PRO",
+      "province": "C.A.B.A.",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "ALONSO, María Luz",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "La Pampa",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ARENAS, Berta Hortensia",
+      "bloc": "Compromiso Federal",
+      "province": "San Luis",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "ARGUMEDO, Alcira Susana",
+      "bloc": "Proyecto Sur",
+      "province": "C.A.B.A.",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "ARREGUI, Andrés Roberto",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ASSEFF, ALBERTO",
+      "bloc": "UNIR",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "AVOSCAN, Herman Horacio",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Rio Negro",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "BALCEDO, María Ester",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "BALDASSI, HECTOR W.",
+      "bloc": "Unión PRO",
+      "province": "Córdoba",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "BARCHETTA, Omar Segundo",
+      "bloc": "Partido Socialista",
+      "province": "Santa Fe",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "BARDEGGIA, Luis María",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Rio Negro",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "BARLETTA, MARIO",
+      "bloc": "Unión Cívica Radical",
+      "province": "Santa Fe",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "BARRETO, Jorge Rubén",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Entre Ríos",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "BASTERRA, LUIS EUGENIO",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Formosa",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "BAZZE, MIGUEL ANGEL",
+      "bloc": "Unión Cívica Radical",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "BEDANO, Nora Esther",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Córdoba",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "BERGMAN, Sergio Alejandro",
+      "bloc": "Unión PRO",
+      "province": "C.A.B.A.",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "BERNABEY, Ramón Ernesto",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Córdoba",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "BIANCHI, Ivana María",
+      "bloc": "Compromiso Federal",
+      "province": "San Luis",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "BIANCHI, María del Carmen",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "C.A.B.A.",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "BIDEGAIN, Gloria Mercedes",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "BIELLA, BERNARDO",
+      "bloc": "U.De.So. Salta",
+      "province": "Salta",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "BINNER, Hermes Juan",
+      "bloc": "Partido Socialista",
+      "province": "Santa Fe",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "BOYADJIAN, Graciela Eunice",
+      "bloc": "Movimiento Popular Fueguino",
+      "province": "Tierra del Fuego",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "BRAWER, MARA",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "C.A.B.A.",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "BRIZUELA DEL MORAL, Eduardo Segundo",
+      "bloc": "Fte. Cívico y Social de Catamarca",
+      "province": "Catamarca",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "BROMBERG, Isaac Benjamín",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Tucumán",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "BROWN, Carlos Ramón",
+      "bloc": "Fe",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "BULLRICH, Patricia",
+      "bloc": "Unión PRO",
+      "province": "C.A.B.A.",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "BURGOS, María Gabriela",
+      "bloc": "Unión Cívica Radical",
+      "province": "Jujuy",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "BURYAILE, RICARDO",
+      "bloc": "Unión Cívica Radical",
+      "province": "Formosa",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "CABANDIÉ, Juan",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "C.A.B.A.",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CÁCERES, Eduardo Augusto",
+      "bloc": "Unión PRO",
+      "province": "San Juan",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "CALCAGNO Y MAILLMANN, Eric",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CAMAÑO, GRACIELA",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CANELA, Susana",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Salta",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CANO, José Manuel",
+      "bloc": "Unión Cívica Radical",
+      "province": "Tucumán",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "CARLOTTO, Remo Gerardo",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CARMONA, Guillermo Ramón",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Mendoza",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CARRILLO, María del Carmen",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Tucumán",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CARRIÓ, Elisa María Avelina",
+      "bloc": "Coalición Cívica - ARI - UNEN",
+      "province": "C.A.B.A.",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "CARRIZO, ANA CARLA",
+      "bloc": "SUMA + UNEN",
+      "province": "C.A.B.A.",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "CARRIZO, SOLEDAD",
+      "bloc": "Unión Cívica Radical",
+      "province": "Córdoba",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "CARRIZO, NILDA MABEL",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Tucumán",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CASAÑAS, Juan Francisco",
+      "bloc": "Unión Cívica Radical",
+      "province": "Tucumán",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "CASELLES, GRACIELA MARIA",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "San Juan",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CASERIO, Carlos Alberto",
+      "bloc": "Unión por Córdoba",
+      "province": "Córdoba",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "CASTRO, Sandra Daniela",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "San Juan",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CEJAS, Jorge Alberto",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Rio Negro",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CIAMPINI, José Alberto",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Neuquén",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CICILIANI, Alicia Mabel",
+      "bloc": "Partido Socialista",
+      "province": "Santa Fe",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "CLERI, MARCOS",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Santa Fe",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "COBOS, JULIO",
+      "bloc": "Unión Cívica Radical",
+      "province": "Mendoza",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "COMELLI, Alicia Marcela",
+      "bloc": "Movimiento Popular Neuquino",
+      "province": "Neuquén",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CONTI, Diana Beatriz",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CONTRERA, Mónica Graciela",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Chubut",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "CORTINA, Roy",
+      "bloc": "Partido Socialista",
+      "province": "C.A.B.A.",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "COSTA, Eduardo Raúl",
+      "bloc": "Unión Cívica Radical",
+      "province": "Santa Cruz",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "CREMER DE BUSTI, María Cristina",
+      "bloc": "Unión por Entre Ríos",
+      "province": "Entre Ríos",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "CUCCOVILLO, Ricardo Oscar",
+      "bloc": "Partido Socialista",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "D'AGOSTINO, Jorge Marcelo",
+      "bloc": "Unión Cívica Radical",
+      "province": "Entre Ríos",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "D'ALESSANDRO, Marcelo Silvio",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "DAER, Héctor Ricardo",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "DAS NEVES, Mario",
+      "bloc": "Trabajo y Dignidad",
+      "province": "Chubut",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "DATO, Alfredo Carlos",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Tucumán",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "DE FERRARI RUEDA, Patricia",
+      "bloc": "Unión Cívica Radical",
+      "province": "Córdoba",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "DE GENNARO, Victor Norberto",
+      "bloc": "Unidad Popular",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "DE MENDIGUREN, José Ignacio",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "DE NARVAEZ, Francisco",
+      "bloc": "Unión Celeste y Blanco",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "DE PEDRO, Eduardo Enrique",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "DEL CAÑO, NICOLAS",
+      "bloc": "PTS - Frente de Izquierda",
+      "province": "Mendoza",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "DEPETRI, Edgardo Fernando",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "di TULLIO, Juliana",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "DIAZ BANCALARI, José María",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "DIAZ ROIG, Juan Carlos",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Formosa",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "DOMINGUEZ, Julián Andrés",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "DONDA PÉREZ, Victoria Analía",
+      "bloc": "Libres del Sur",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "DONKIN, Carlos Guillermo",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Formosa",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "DUCLOS, Omar Arnaldo",
+      "bloc": "GEN",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "DURAND CORNEJO, Guillermo Mario",
+      "bloc": "Conservador Popular",
+      "province": "Salta",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "EHCOSOR, María Azucena",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ELORRIAGA, Osvaldo Enrique",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Entre Ríos",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ESPER, Laura Reneé",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "FABIANI, Eduardo Alberto",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "FELETTI, Roberto José",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "C.A.B.A.",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "FERNÁNDEZ MENDÍA, Gustavo Rodolfo",
+      "bloc": "Partido Justicialista La Pampa",
+      "province": "La Pampa",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "FERNANDEZ SAGASTI, Anabel",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Mendoza",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "FERREYRA, Araceli Susana Del Rosario",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Corrientes",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "FIAD, Mario Raymundo",
+      "bloc": "Unión Cívica Radical",
+      "province": "Jujuy",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "FRANCIONI, Fabián Marcelo",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Córdoba",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GAGLIARDI, Josué",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Rio Negro",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GAILLARD, ANA CAROLINA",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Entre Ríos",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GALLARDO, Miriam Graciela del Valle",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Tucumán",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GARCIA, Andrea Fabiana",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GARCIA, MARIA TERESA",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GARRIDO, Manuel",
+      "bloc": "Unión Cívica Radical",
+      "province": "C.A.B.A.",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "GDANSKY, Carlos Enrique",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GERVASONI, Lautaro",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Entre Ríos",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GIACCONE, Claudia Alejandra",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Santa Fe",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GIACOMINO, Daniel Oscar",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Córdoba",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GIANNETTASIO, Graciela María",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GILL, Martin Rodrigo",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Córdoba",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GIMÉNEZ, Patricia Viviana",
+      "bloc": "Unión Cívica Radical",
+      "province": "Mendoza",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "GIUBERGIA, Miguel Angel",
+      "bloc": "Unión Cívica Radical",
+      "province": "Jujuy",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "GIUSTOZZI, Rubén Darío",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GOMEZ BULL, Mauricio Ricardo",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Santa Cruz",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GONZÁLEZ, Gladys Esther",
+      "bloc": "Unión PRO",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "GONZÁLEZ, Josefina Victoria",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Santa Fe",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GONZALEZ, Juan Dante",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Mendoza",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GONZALEZ, Verónica Evangelina",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Tierra del Fuego",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GRANADOS, Dulce",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GRIBAUDO, Christian Alejandro",
+      "bloc": "Unión PRO",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "GROSSO, LEONARDO",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GUCCIONE, José Daniel",
+      "bloc": "Fte. Renov. de la Conc. Misiones - FPV-PJ",
+      "province": "Misiones",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "GUTIERREZ, Héctor María",
+      "bloc": "Unión Cívica Radical",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "GUTIERREZ, Mónica Edith",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Córdoba",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "GUZMÁN, Sandro Adrián",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "HARISPE, Gastón",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "HELLER, CARLOS",
+      "bloc": "Juntos por Argentina",
+      "province": "C.A.B.A.",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "HERRERA, Griselda Noemí",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "La Rioja",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "HERRERA, José Alberto",
+      "bloc": "Frente Cívico por Santiago",
+      "province": "Santiago del Estero",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "IANNI, ANA MARIA",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Santa Cruz",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "INSAURRALDE, Martín",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ISA, Evita Nélida",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Salta",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "JAVKIN, Pablo Lautaro",
+      "bloc": "Coalición Cívica - ARI - UNEN",
+      "province": "Santa Fe",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "JUÁREZ, Manuel Humberto",
+      "bloc": "Frente Cívico por Santiago",
+      "province": "Santiago del Estero",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "JUÁREZ, Myrian del Valle",
+      "bloc": "Fte. Cívico y Social de Catamarca",
+      "province": "Catamarca",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "JUNIO, Juan Carlos Isaac",
+      "bloc": "Juntos por Argentina",
+      "province": "C.A.B.A.",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "KOSINER, Pablo Francisco Juan",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Salta",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "KRONEBERGER, Daniel Ricardo",
+      "bloc": "Unión Cívica Radical",
+      "province": "La Pampa",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "KUNKEL, Carlos Miguel",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "LAGORIA, Elia Nelly",
+      "bloc": "Trabajo y Dignidad",
+      "province": "Chubut",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "LANDAU, Jorge Alberto",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "LARROQUE, Andrés",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "C.A.B.A.",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "LEVERBERG, Stella Maris",
+      "bloc": "Fte. Renov. de la Conc. Misiones - FPV-PJ",
+      "province": "Misiones",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "LINARES, María Virginia",
+      "bloc": "GEN",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "LÓPEZ, Pablo Sebastián",
+      "bloc": "Fte. de Izquierda y de los Trabajadores",
+      "province": "Salta",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "LOTTO, Inés Beatriz",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Formosa",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "LOUSTEAU, MARTIN",
+      "bloc": "SUMA + UNEN",
+      "province": "C.A.B.A.",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "LOZANO, Claudio Raúl",
+      "bloc": "Unidad Popular",
+      "province": "C.A.B.A.",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "MAC ALLISTER, Carlos Javier",
+      "bloc": "Unión PRO",
+      "province": "La Pampa",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "MADERA, Teresita",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "La Rioja",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "MAGARIO, Verónica María",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "MAJDALANI, Silvia Cristina",
+      "bloc": "Unión PRO",
+      "province": "C.A.B.A.",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "MALDONADO, Victor Hugo",
+      "bloc": "Unión Cívica Radical",
+      "province": "Chaco",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "MARCOPULOS, Juan Fernando",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Corrientes",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "MARTINEZ, Julio César",
+      "bloc": "Unión Cívica Radical",
+      "province": "La Rioja",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "MARTÍNEZ, Oscar Anselmo",
+      "bloc": "Movimiento Solidario Popular",
+      "province": "Tierra del Fuego",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "MARTINEZ, Oscar Ariel",
+      "bloc": "Frente Renovador",
+      "province": "Santa Fe",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "MARTÍNEZ, Soledad",
+      "bloc": "Unión PRO",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "MARTÍNEZ CAMPOS, Gustavo José",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Chaco",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "MASSA, Sergio Tomas",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "MAZURE, Liliana Amalia",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "C.A.B.A.",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "MENDOZA, Mayra Soledad",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "MENDOZA, Sandra Marcela",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Chaco",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "MESTRE, Diego Matías",
+      "bloc": "Unión Cívica Radical",
+      "province": "Córdoba",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "METAZA, Mario Alfredo",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Santa Cruz",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "xx BORRAR, Manuel Isauro",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Catamarca",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "MONGELO, José Ricardo",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Chaco",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "MORENO, Carlos Julio",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "MOYANO, Juan Facundo",
+      "bloc": "Cultura, Educación y Trabajo",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "MULLER, Edgar Raúl",
+      "bloc": "Compromiso Federal",
+      "province": "Córdoba",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "NAVARRO, GRACIELA",
+      "bloc": "Frente Cívico por Santiago",
+      "province": "Santiago del Estero",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "NEGRI, MARIO RAUL",
+      "bloc": "Unión Cívica Radical",
+      "province": "Córdoba",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "OLIVA, Cristian Rodolfo",
+      "bloc": "Frente Cívico por Santiago",
+      "province": "Santiago del Estero",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "OLIVARES, Héctor Enrique",
+      "bloc": "Unión Cívica Radical",
+      "province": "La Rioja",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "OPORTO, Mario Néstor",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ORTIZ, Mariela",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Jujuy",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ORTIZ CORREA, Marcia Sara María",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Catamarca",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "PAIS, Juan Mario",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Chubut",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "PARRILLI, Nanci María Agustina",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Neuquén",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "PASTORI, Luis Mario",
+      "bloc": "Unión Cívica Radical",
+      "province": "Misiones",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "PASTORIZA, Mirta Ameliana",
+      "bloc": "Frente Cívico por Santiago",
+      "province": "Santiago del Estero",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "PEDRINI, JUAN MANUEL",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Chaco",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "PERALTA, Fabián Francisco",
+      "bloc": "GEN",
+      "province": "Santa Fe",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "PEREZ, José Adrián",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "PÉREZ, Martín Alejandro",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Tierra del Fuego",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "PERIE, Julia Argentina",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Misiones",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "PEROTTI, Omar Angel",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Santa Fe",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "PERRONI, Ana María",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Corrientes",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "PETRI, LUIS",
+      "bloc": "Unión Cívica Radical",
+      "province": "Mendoza",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "PIETRAGALLA CORTI, HORACIO",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "PINEDO, Federico",
+      "bloc": "Unión PRO",
+      "province": "C.A.B.A.",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "PITROLA, NESTOR",
+      "bloc": "Fte. de Izquierda y de los Trabajadores",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "PLAINI, Francisco Omar",
+      "bloc": "Cultura, Educación y Trabajo",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "PORTELA, Agustín Alberto",
+      "bloc": "Unión Cívica Radical",
+      "province": "Corrientes",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "PRADINES, Roberto Arturo",
+      "bloc": "Demócrata de Mendoza",
+      "province": "Mendoza",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "PUCHETA, Ramona",
+      "bloc": "Frente por la Inclusión Social",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "PUIGGROS, Adriana Victoria",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "RAIMUNDI, Carlos",
+      "bloc": "Juntos por Argentina",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "RASINO, Elida Elena",
+      "bloc": "Partido Socialista",
+      "province": "Santa Fe",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "RECALDE, Héctor Pedro",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "REDCZUK, Oscar Felipe",
+      "bloc": "Fte. Renov. de la Conc. Misiones - FPV-PJ",
+      "province": "Misiones",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "RICCARDO, José Luis",
+      "bloc": "Unión Cívica Radical",
+      "province": "San Luis",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "RIESTRA, Antonio Sabino",
+      "bloc": "Unidad Popular",
+      "province": "Santa Fe",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "RIOS, Liliana María",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Entre Ríos",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "RISKO, Silvia Lucrecia",
+      "bloc": "Fte. Renov. de la Conc. Misiones - FPV-PJ",
+      "province": "Misiones",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "RIVAROLA, Rubén Armando",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Jujuy",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "RIVAS, Jorge",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ROBERTI, Alberto Oscar",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ROGEL, Fabián Dulio",
+      "bloc": "Unión Cívica Radical",
+      "province": "Entre Ríos",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "ROMERO, Oscar Alberto",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ROSSI, Blanca Araceli",
+      "bloc": "Unión por Córdoba",
+      "province": "Córdoba",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "RUBÍN, Carlos Gustavo",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Corrientes",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "RUIZ, Aida Delia",
+      "bloc": "Frente Cívico por Santiago",
+      "province": "Santiago del Estero",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "SACCA, Luis Fernando",
+      "bloc": "Unión Cívica Radical",
+      "province": "Tucumán",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "SALINO, Fernando Aldo",
+      "bloc": "Compromiso Federal",
+      "province": "San Luis",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "SAN MARTÍN, Adrián",
+      "bloc": "Movimiento Popular Neuquino",
+      "province": "Neuquén",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "SÁNCHEZ, Fernando",
+      "bloc": "Coalición Cívica - ARI - UNEN",
+      "province": "C.A.B.A.",
+      "vote": "ABSTENCION",
+      "coalition": "PRO"
+    },
+    {
+      "name": "SANTILLÁN, Walter Marcelo",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Tucumán",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "SANTIN, Eduardo",
+      "bloc": "Unión Cívica Radical",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "SCAGLIA, GISELA",
+      "bloc": "Unión PRO",
+      "province": "Santa Fe",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "SCHIARETTI, JUAN",
+      "bloc": "Unión por Córdoba",
+      "province": "Córdoba",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "SCHMIDT LIERMANN, Cornelia",
+      "bloc": "Unión PRO",
+      "province": "C.A.B.A.",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "SCHWINDT, María Liliana",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "SCIUTTO, Rubén Darío",
+      "bloc": "Peronismo mas al Sur",
+      "province": "Tierra del Fuego",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "SEGARRA, Adela Rosa",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "SEMHAN, María de las Mercedes",
+      "bloc": "Unión Cívica Radical",
+      "province": "Corrientes",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "SEMINARA, Eduardo Jorge",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Santa Fe",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "SIMONCINI, Silvia Rosa",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Santa Fe",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "SOLÁ, Felipe Carlos",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "SOLANAS, Julio Rodolfo",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Entre Ríos",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "SORIA, María Emilia",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Rio Negro",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "SOTO, Gladys Beatriz",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Chaco",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "SPINOZZI, Ricardo Adrián",
+      "bloc": "Unión PRO",
+      "province": "Santa Fe",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "STOLBIZER, MARGARITA",
+      "bloc": "GEN",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "STURZENEGGER, Federico Adolfo",
+      "bloc": "Unión PRO",
+      "province": "C.A.B.A.",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "TENTOR, Héctor Olindo",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Jujuy",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "TERADA, Alicia",
+      "bloc": "Coalición Cívica - ARI - UNEN",
+      "province": "Chaco",
+      "vote": "ABSTENCION",
+      "coalition": "PRO"
+    },
+    {
+      "name": "TINEO, Javier Héctor",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "La Rioja",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "TOLEDO, Susana María",
+      "bloc": "Unión Cívica Radical",
+      "province": "Santa Cruz",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "TOMAS, Héctor Daniel",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "San Juan",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "TOMASSI, Néstor Nicolás",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Catamarca",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "TONELLI, PABLO GABRIEL",
+      "bloc": "Unión PRO",
+      "province": "C.A.B.A.",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "TORRES DEL SEL, Miguel Ignacio",
+      "bloc": "Unión PRO",
+      "province": "Santa Fe",
+      "vote": "ABSTENCION",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "TORROBA, Francisco Javier",
+      "bloc": "Unión Cívica Radical",
+      "province": "La Pampa",
+      "vote": "AFIRMATIVO",
+      "coalition": "PRO"
+    },
+    {
+      "name": "TRIACA, Alberto Jorge",
+      "bloc": "Unión PRO",
+      "province": "C.A.B.A.",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "TROIANO, Gabriela Alejandra",
+      "bloc": "Partido Socialista",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "TUNDIS, Mirta",
+      "bloc": "Frente Renovador",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "UÑAC, José Rubén",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "San Juan",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "VALDÉS, Gustavo Adolfo",
+      "bloc": "Unión Cívica Radical",
+      "province": "Corrientes",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "VALINOTTO, Jorge Anselmo",
+      "bloc": "Frente Cívico - Córdoba",
+      "province": "Córdoba",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "VAQUIE, Enrique Andrés",
+      "bloc": "Unión Cívica Radical",
+      "province": "Mendoza",
+      "vote": "AUSENTE",
+      "coalition": "PRO"
+    },
+    {
+      "name": "VILARIÑO, José Antonio",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Salta",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "VILLA, José Antonio",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "San Juan",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "VILLAR MOLINA, María Inés",
+      "bloc": "Movimiento Popular Neuquino",
+      "province": "Neuquén",
+      "vote": "AUSENTE",
+      "coalition": "PJ"
+    },
+    {
+      "name": "VILLATA, Graciela Susana",
+      "bloc": "Frente Cívico - Córdoba",
+      "province": "Córdoba",
+      "vote": "AUSENTE",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "ZABALZA, Juan Carlos",
+      "bloc": "Partido Socialista",
+      "province": "Santa Fe",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    },
+    {
+      "name": "ZAMARREÑO, María Eugenia",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Buenos Aires",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ZIEBART, Cristina Isabel",
+      "bloc": "Frente para la Victoria - PJ",
+      "province": "Chubut",
+      "vote": "AFIRMATIVO",
+      "coalition": "PJ"
+    },
+    {
+      "name": "ZIEGLER, Alex Roberto",
+      "bloc": "Fte. Renov. de la Conc. Misiones - FPV-PJ",
+      "province": "Misiones",
+      "vote": "AFIRMATIVO",
+      "coalition": "OTHER"
+    }
+  ]
+}
