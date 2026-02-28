@@ -10,3 +10,12 @@ Then we need to look into the percentage affinity calculation. For each year, fo
 was voted differently by the two largest blocks for that year, we need to calculate the percentage of votaciones where 
 the vote of the politician coincides with the majority vote of the parties. We need to use (PJ, Justicialistas, Union Por la Patria, 	Frente para la Victoria, Frente de Todos) for every year,
 and up to 2023, compare to (JxC, Cambiemos, PRO, UCR). Starting 2024, we use PJ and similar versus LLA and PRO.
+
+Also, there is a problem when choosing a politician, and then going back to the search and entering a different politician page again. 
+Data sometimes becomes corrupt. Should we do any clean up when leaving a politician page to go back to the search?
+
+Also, for coalitions for which to calculate affinity, we should use one coalition PJ (PJ, Justicialistas, Frente para la Victoria, Frente de Todos, Union por la Patria, UxP), and compare to the JxC coalition (UCR, JxC, Cambiemos, PRO) for all years up to 2023.
+Starting from 2024, we need to compare PJ to the LLA (La Libertad Avanza, PRO coalition).
+For each year, we need to calculate the percentage of times that the politico in question votes the same way as the large coalitions, but only when they dont agree. Only calculate for a year if that happens with more than 5 votes, otherwise leave blank.
+Only calculate this percentage for votaciones which do not include "Moción de Orden" or "Pedido de Licencia" text in the name.
+We also need to handle Ausencias more smartly. 
