@@ -656,6 +656,8 @@ def generate_site_data(legislators: dict, law_groups: dict):
                 "v": vote["v"],
                 "al": al,
                 "t": vote.get("t", ""),
+                "vid": vote.get("vid"),
+                "ch": vote.get("ch"),
                 "g": is_general,
             }
             if vote.get("url"):
