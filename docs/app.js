@@ -20,7 +20,9 @@ let currentDetail = null;
 let chartAlignment = null;
 let chartYearly = null;
 let currentVotesPage = 1;
+let currentWafflePage = 1;
 const VOTES_PER_PAGE = 25;
+const LAWS_PER_PAGE = 10;
 
 const DATA_PATH = "data";
 
@@ -126,8 +128,8 @@ function setupEventListeners() {
     document.getElementById("votes-law-filter").addEventListener("input", debounce(() => { currentVotesPage = 1; renderVotesTable(); }, 200));
 
     // Waffle filters
-    document.getElementById("waffle-year-filter").addEventListener("change", renderWaffle);
-    document.getElementById("waffle-law-filter").addEventListener("input", debounce(renderWaffle, 200));
+    document.getElementById("waffle-year-filter").addEventListener("change", () => { currentWafflePage = 1; renderWaffle(); });
+    document.getElementById("waffle-law-filter").addEventListener("input", debounce(() => { currentWafflePage = 1; renderWaffle(); }, 200));
 
     // Share buttons (legislator detail waffle)
     document.getElementById("btn-copy-image").addEventListener("click", copyWaffleImage);
@@ -328,17 +330,31 @@ function renderNotableCard(data) {
         right.innerHTML = `<div class="notable-no-data">Este legislador no tiene votos registrados en las leyes destacadas.</div>`;
     } else {
         right.innerHTML = notableLaws.map((law) => {
+            // compute link for law using first vote if available
+            let href = law.url || "";
+            if (!href && law.votes && law.votes.length > 0) {
+                const v0 = law.votes[0];
+                if (v0.url) href = v0.url;
+                else if (v0.ch === "diputados" && v0.vid) {
+                    href = `https://votaciones.hcdn.gob.ar/votacion/${v0.vid}`;
+                }
+            }
+            const linkHtml = href ? `<a class="law-link" href="${escapeAttr(href)}" target="_blank" title="Ver votación original">🔗</a>` : "";
+
             const tiles = law.votes.map((vote) => {
-                const cls = `waffle-tile tile-${vote.v}`;
+                const isGeneral = vote.g === true;
+                const cls = `waffle-tile tile-${vote.v}${isGeneral ? " tile-general" : ""}`;
                 const icon = voteIcon(vote.v);
-                const tooltip = vote.al ? `${vote.al}: ${formatVoteShort(vote.v)}` : formatVoteShort(vote.v);
+                const label = vote.al || (isGeneral ? "En General" : "");
+                const tooltip = label ? `${label}: ${formatVoteShort(vote.v)}` : formatVoteShort(vote.v);
                 return `<div class="${cls}" title="${escapeAttr(tooltip)}">${icon}</div>`;
             }).join("");
 
             return `
             <div class="notable-law-block">
-                <div class="notable-law-title">${escapeHtml(law.displayName)}</div>
+                <div class="notable-law-title">${escapeHtml(law.displayName)} ${linkHtml}</div>
                 <div class="notable-law-tiles">${tiles}</div>
+                ${href ? `<div class="notable-law-link"><a href="${escapeAttr(href)}" target="_blank">Ver votación original</a></div>` : ""}
             </div>`;
         }).join("");
     }
@@ -350,7 +366,7 @@ function renderNotableCard(data) {
 function shareTwitterNotable() {
     const nameEl = document.querySelector("#notable-card-left .notable-name");
     const name = nameEl ? nameEl.textContent : "un legislador";
-    const text = `Mirá cómo votó ${name} las leyes más importantes en el Congreso Argentino 🗳️\n\n¿Cómo Votó? - comovoto.ar`;
+    const text = `Mirá cómo votó ${name} las leyes más importantes en el Congreso Argentino 🗳️\n\n¿Cómo Votó? - comovoto.dev.ar`;
     const url = encodeURIComponent(window.location.href);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${url}`;
     window.open(tweetUrl, "_blank", "width=600,height=400");
@@ -456,6 +472,9 @@ function renderLegislatorDetail(data) {
     // Reset waffle law filter
     document.getElementById("waffle-law-filter").value = "";
 
+    // Reset waffle page
+    currentWafflePage = 1;
+
     // Render waffle
     renderWaffle();
 
@@ -499,6 +518,11 @@ function renderWaffle() {
 
     let laws = currentDetail.laws || [];
 
+    // Show only notable (common_name) laws by default; show all if user is filtering
+    if (!lawFilter) {
+        laws = laws.filter((l) => l.notable === true);
+    }
+
     // Apply filters
     if (yearFilter) {
         laws = laws.filter((l) => String(l.year) === yearFilter);
@@ -508,29 +532,50 @@ function renderWaffle() {
     }
 
     const body = document.getElementById("waffle-card-body");
+    const paginationContainer = document.getElementById("waffle-pagination");
 
     if (laws.length === 0) {
-        body.innerHTML = '<div class="waffle-empty">No hay votaciones para los filtros seleccionados</div>';
+        body.innerHTML = '<div class="waffle-empty">No hay leyes destacadas para los filtros seleccionados</div>';
+        if (paginationContainer) paginationContainer.innerHTML = "";
         return;
     }
 
+    // Pagination
+    const totalPages = Math.max(1, Math.ceil(laws.length / LAWS_PER_PAGE));
+    if (currentWafflePage > totalPages) currentWafflePage = totalPages;
+    const start = (currentWafflePage - 1) * LAWS_PER_PAGE;
+    const pageLaws = laws.slice(start, start + LAWS_PER_PAGE);
+
     // Render law rows
     let html = "";
-    for (const law of laws) {
+    for (const law of pageLaws) {
         const tiles = law.votes.map((vote) => {
-            const cls = `waffle-tile tile-${vote.v}`;
+            const isGeneral = vote.g === true;
+            const cls = `waffle-tile tile-${vote.v}${isGeneral ? " tile-general" : ""}`;
             const icon = voteIcon(vote.v);
-            const tooltip = vote.al ? `${vote.al}: ${formatVoteShort(vote.v)}` : formatVoteShort(vote.v);
+            const label = vote.al || (isGeneral ? "En General" : "");
+            const tooltip = label ? `${label}: ${formatVoteShort(vote.v)}` : formatVoteShort(vote.v);
             return `<div class="${cls}" title="${escapeAttr(tooltip)}">${icon}</div>`;
         }).join("");
 
         const displayName = escapeHtml(truncate(law.name, 60));
         const yearLabel = law.year ? `<span class="waffle-law-year">${law.year}</span>` : "";
 
+        // compute link for law using law.url or first vote fallback
+        let href = law.url || "";
+        if (!href && law.votes && law.votes.length > 0) {
+            const v0 = law.votes[0];
+            if (v0.url) href = v0.url;
+            else if (v0.ch === "diputados" && v0.vid) {
+                href = `https://votaciones.hcdn.gob.ar/votacion/${v0.vid}`;
+            }
+        }
+        const linkHtml = href ? `<a class="law-link" href="${escapeAttr(href)}" target="_blank" title="Ver votación original">🔗</a>` : "";
+
         html += `
         <div class="waffle-law-row">
             <div class="waffle-law-label">
-                <span class="waffle-law-name">${displayName}</span>
+                <span class="waffle-law-name">${displayName} ${linkHtml}</span>
                 ${yearLabel}
             </div>
             <div class="waffle-tiles">${tiles}</div>
@@ -538,6 +583,38 @@ function renderWaffle() {
     }
 
     body.innerHTML = html;
+
+    // Render waffle pagination
+    if (paginationContainer) {
+        if (totalPages <= 1) {
+            paginationContainer.innerHTML = `<span style="font-size:0.8rem;color:var(--color-text-secondary)">${laws.length} leyes</span>`;
+        } else {
+            let pHtml = "";
+            if (currentWafflePage > 1) {
+                pHtml += `<button data-wpage="${currentWafflePage - 1}">\u2190 Ant.</button>`;
+            }
+            for (let p = 1; p <= totalPages; p++) {
+                if (p === 1 || p === totalPages || Math.abs(p - currentWafflePage) <= 2) {
+                    pHtml += `<button data-wpage="${p}" class="${p === currentWafflePage ? "active" : ""}">${p}</button>`;
+                } else if (Math.abs(p - currentWafflePage) === 3) {
+                    pHtml += `<span style="padding:0.4rem;color:var(--color-text-secondary)">\u2026</span>`;
+                }
+            }
+            if (currentWafflePage < totalPages) {
+                pHtml += `<button data-wpage="${currentWafflePage + 1}">Sig. \u2192</button>`;
+            }
+            pHtml += `<span style="font-size:0.75rem;color:var(--color-text-secondary);margin-left:0.5rem">${laws.length} leyes</span>`;
+            paginationContainer.innerHTML = pHtml;
+
+            paginationContainer.querySelectorAll("button[data-wpage]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    currentWafflePage = parseInt(btn.dataset.wpage);
+                    renderWaffle();
+                    document.getElementById("waffle-section").scrollIntoView({ behavior: "smooth" });
+                });
+            });
+        }
+    }
 }
 
 function voteIcon(vote) {
@@ -604,7 +681,7 @@ async function copyWaffleImage() {
 function shareTwitter() {
     if (!currentDetail) return;
     const name = currentDetail.name;
-    const text = `Mirá cómo votó ${name} en el Congreso Argentino 🗳️\n\n¿Cómo Votó? - comovoto.ar`;
+    const text = `Mirá cómo votó ${name} en el Congreso Argentino 🗳️\n\n¿Cómo Votó? - comovoto.dev.ar`;
     const url = encodeURIComponent(window.location.href);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${url}`;
     window.open(tweetUrl, "_blank", "width=600,height=400");
@@ -818,18 +895,27 @@ function renderVotesTable() {
     const tbody = document.getElementById("votes-tbody");
     tbody.innerHTML = pageVotes
         .map(
-            (v) => `
+            (v) => {
+                // compute source link if available
+                let linkHtml = "";
+                const href = v.url || (v.ch === "diputados" && v.vid ? `https://votaciones.hcdn.gob.ar/votacion/${v.vid}` : null);
+                if (href) {
+                    linkHtml = `<a class="vote-link" href="${escapeAttr(href)}" target="_blank" title="Ver votación original">🔗</a>`;
+                }
+                return `
         <tr>
             <td style="white-space:nowrap">${escapeHtml(v.d || "")}</td>
             <td>
                 <div class="vote-title">${escapeHtml(v.ln || v.t || "")}</div>
                 ${v.al ? `<div class="vote-article">${escapeHtml(v.al)}</div>` : ""}
             </td>
+            <td class="vote-source-cell">${linkHtml}</td>
             <td><span class="vote-chip vote-${v.v}">${formatVote(v.v)}</span></td>
             <td><span class="vote-chip vote-${v.pj}">${formatVote(v.pj)}</span></td>
             <td><span class="vote-chip vote-${v.pro}">${formatVote(v.pro)}</span></td>
             <td><span class="vote-chip vote-${v.lla}">${formatVote(v.lla)}</span></td>
-        </tr>`
+        </tr>`;
+            }
         )
         .join("");
 

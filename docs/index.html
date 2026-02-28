@@ -122,7 +122,7 @@
                     <div class="notable-card-right" id="notable-card-right">
                         <!-- Waffle grids for notable laws (filled by JS) -->
                     </div>
-                    <div class="notable-card-footer">comovoto.ar</div>
+                    <div class="notable-card-footer">comovoto.dev.ar</div>
                 </div>
                 <div class="notable-legend">
                     <span class="waffle-legend-item"><span class="waffle-tile-legend tile-AFIRMATIVO"></span> Afirmativo</span>
@@ -163,10 +163,28 @@
                 </div>
             </div>
 
-            <!-- ======== WAFFLE VISUALIZATION CARD ======== -->
+            <!-- Charts Row (at the top) -->
+            <div class="charts-row">
+                <div class="chart-card chart-large">
+                    <h3>Alineamiento con partidos por año</h3>
+                    <p class="chart-desc">Porcentaje de veces que votó igual que la mayoría de cada coalición</p>
+                    <div class="chart-container">
+                        <canvas id="chart-alignment"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card chart-medium">
+                    <h3>Votaciones por año</h3>
+                    <p class="chart-desc">Distribución de votos por tipo</p>
+                    <div class="chart-container">
+                        <canvas id="chart-yearly"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======== NOTABLE LAWS PANEL ======== -->
             <div class="waffle-section" id="waffle-section">
                 <div class="waffle-toolbar">
-                    <h3>Votaciones por ley</h3>
+                    <h3>Leyes destacadas</h3>
                     <div class="waffle-controls">
                         <div class="waffle-filter-group">
                             <label for="waffle-year-filter">Año</label>
@@ -204,27 +222,11 @@
                         <span class="waffle-legend-item"><span class="waffle-tile-legend tile-NEGATIVO"></span> Negativo</span>
                         <span class="waffle-legend-item"><span class="waffle-tile-legend tile-ABSTENCION"></span> Abstención</span>
                         <span class="waffle-legend-item"><span class="waffle-tile-legend tile-AUSENTE"></span> Ausente</span>
+                        <span class="waffle-legend-item"><span class="waffle-tile-legend tile-general-legend"></span> Voto en general</span>
                     </div>
-                    <div class="waffle-card-footer">comovoto.ar</div>
+                    <div class="waffle-card-footer">comovoto.dev.ar</div>
                 </div>
-            </div>
-
-            <!-- Charts Row -->
-            <div class="charts-row">
-                <div class="chart-card chart-large">
-                    <h3>Alineamiento con partidos por año</h3>
-                    <p class="chart-desc">Porcentaje de veces que votó igual que la mayoría de cada coalición</p>
-                    <div class="chart-container">
-                        <canvas id="chart-alignment"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card chart-medium">
-                    <h3>Votaciones por año</h3>
-                    <p class="chart-desc">Distribución de votos por tipo</p>
-                    <div class="chart-container">
-                        <canvas id="chart-yearly"></canvas>
-                    </div>
-                </div>
+                <div class="waffle-pagination" id="waffle-pagination"></div>
             </div>
 
             <!-- Vote History Table -->
@@ -249,6 +251,7 @@
                             <tr>
                                 <th>Fecha</th>
                                 <th>Ley / Votación</th>
+                                <th>Fuente</th>
                                 <th>Voto</th>
                                 <th>PJ votó</th>
                                 <th>PRO votó</th>

@@ -3,25 +3,29 @@
 Como Voto - Data Scraper
 ========================
 Scrapes voting data from:
-  - Diputados: https://votaciones.hcdn.gob.ar/
+  - Diputados: https://votaciones.hcdn.gob.ar/  (IDs 1-6500)
   - Senadores: https://www.senado.gob.ar/votaciones/actas
 
 Also scrapes legislator photos:
   - Diputados photos from voting page tables
   - Senadores photos from the Senado open data JSON API
+  - Wikipedia/Wikidata fallback for legislators without official photos
 
-Stores results in data/ directory as JSON files.
-Skips votaciones already present in the local database.
+Stores results in data/ directory as consolidated JSON files
+(one file per chamber with shared lookup tables for compact storage).
 """
 
+import hashlib
 import json
 import os
 import re
 import sys
 import time
 import logging
+import unicodedata
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 import requests
 from bs4 import BeautifulSoup
@@ -31,23 +35,30 @@ from bs4 import BeautifulSoup
 # ---------------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-DIPUTADOS_DIR = DATA_DIR / "diputados"
-SENADORES_DIR = DATA_DIR / "senadores"
 FOTOS_DIR = BASE_DIR / "docs" / "fotos"
 
 HCDN_BASE = "https://votaciones.hcdn.gob.ar"
 SENADO_BASE = "https://www.senado.gob.ar"
 
 # Rate-limiting: seconds between requests
-REQUEST_DELAY = 1.0
+REQUEST_DELAY = 0.3
 
-# HCDN votacion IDs range from 1 to ~6000 (non-contiguous, gaps up to ~1500).
-# We simply iterate through all IDs and check each page.
-HCDN_MAX_ID = 6500          # upper bound to scan (with margin)
-HCDN_STOP_AFTER_MISS = 500  # stop after this many consecutive misses past the last hit
+# HCDN votacion IDs: check every single ID from 1 to this value (inclusive).
+# Known range covers up to 5881 as of Feb 2026. We add margin.
+HCDN_MAX_ID = 6500
 
 # Senado periods to scrape
 SENADO_YEARS = list(range(2015, datetime.now().year + 1))
+
+# Vote code mapping (compact integer codes for storage)
+VOTE_ENCODE = {
+    "AFIRMATIVO": 1,
+    "NEGATIVO": 2,
+    "ABSTENCION": 3,
+    "AUSENTE": 4,
+    "PRESIDENTE": 5,
+}
+VOTE_DECODE = {v: k for k, v in VOTE_ENCODE.items()}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -58,7 +69,7 @@ log = logging.getLogger("scraper")
 
 SESSION = requests.Session()
 SESSION.headers.update({
-    "User-Agent": "ComoVoto-Scraper/1.0 (https://github.com/como-voto; educational project)",
+    "User-Agent": "ComoVoto-Scraper/2.0 (https://github.com/rquiroga7/Como_voto; educational project)",
     "Accept-Language": "es-AR,es;q=0.9",
 })
 
@@ -103,48 +114,201 @@ def classify_bloc(bloc_name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Persistence helpers
+# Consolidated JSON Database
 # ---------------------------------------------------------------------------
 
-def ensure_dirs():
-    """Create data directories if they don't exist."""
-    for d in [DATA_DIR, DIPUTADOS_DIR, SENADORES_DIR, FOTOS_DIR]:
-        d.mkdir(parents=True, exist_ok=True)
+class ConsolidatedDB:
+    """Manages a consolidated JSON database for a chamber.
 
+    Format on disk (compact JSON, no whitespace):
+    {
+      "names": ["Name1", "Name2", ...],
+      "blocs": ["Bloc1", "Bloc2", ...],
+      "provinces": ["Prov1", "Prov2", ...],
+      "photo_ids": {"0": "A1234", ...},     // str(name_idx) -> photo_id
+      "votaciones": [
+        {
+          "id": "123",
+          "t": "Title",
+          "d": "01/01/2015 - 14:30",
+          "r": "AFIRMATIVO",
+          "tp": "EN GENERAL",
+          "p": "Período ...",
+          "a": 200, "n": 30, "b": 5, "u": 22,
+          "v": [[name_idx, bloc_idx, prov_idx, vote_code], ...]
+        }, ...
+      ]
+    }
 
-def load_json(path: Path) -> dict | list:
-    if path.exists():
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+    vote_code: 1=AFIRMATIVO, 2=NEGATIVO, 3=ABSTENCION, 4=AUSENTE, 5=PRESIDENTE
+    """
 
+    def __init__(self, path: Path):
+        self.path = path
+        self.names: list[str] = []
+        self.blocs: list[str] = []
+        self.provinces: list[str] = []
+        self.photo_ids: dict[str, str] = {}  # str(name_idx) -> photo_id
+        self.votaciones: list[dict] = []
+        self._name_idx: dict[str, int] = {}
+        self._bloc_idx: dict[str, int] = {}
+        self._prov_idx: dict[str, int] = {}
+        self._votacion_ids: set[str] = set()
 
-def save_json(path: Path, data):
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    def load(self):
+        """Load existing data from disk."""
+        if not self.path.exists():
+            return
+        try:
+            with open(self.path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            log.warning(f"Error loading {self.path}: {e}")
+            return
 
+        self.names = data.get("names", [])
+        self.blocs = data.get("blocs", [])
+        self.provinces = data.get("provinces", [])
+        self.photo_ids = data.get("photo_ids", {})
+        self.votaciones = data.get("votaciones", [])
 
-def load_index(chamber: str) -> dict:
-    """Load the votaciones index for a chamber. Returns {id: metadata}."""
-    path = DATA_DIR / f"{chamber}_index.json"
-    return load_json(path) if path.exists() else {}
+        # Rebuild indexes
+        self._name_idx = {n: i for i, n in enumerate(self.names)}
+        self._bloc_idx = {b: i for i, b in enumerate(self.blocs)}
+        self._prov_idx = {p: i for i, p in enumerate(self.provinces)}
+        self._votacion_ids = {str(v["id"]) for v in self.votaciones}
 
+    def save(self):
+        """Save to disk (compact JSON, no indent)."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "names": self.names,
+            "blocs": self.blocs,
+            "provinces": self.provinces,
+            "photo_ids": self.photo_ids,
+            "votaciones": self.votaciones,
+        }
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
 
-def save_index(chamber: str, index: dict):
-    save_json(DATA_DIR / f"{chamber}_index.json", index)
+    def has_votacion(self, vid: str) -> bool:
+        return str(vid) in self._votacion_ids
 
+    def _get_name_idx(self, name: str) -> int:
+        if name not in self._name_idx:
+            idx = len(self.names)
+            self.names.append(name)
+            self._name_idx[name] = idx
+        return self._name_idx[name]
 
-def votacion_exists(chamber: str, votacion_id: str) -> bool:
-    """Check if a votacion detail file already exists."""
-    chamber_dir = DIPUTADOS_DIR if chamber == "diputados" else SENADORES_DIR
-    return (chamber_dir / f"{votacion_id}.json").exists()
+    def _get_bloc_idx(self, bloc: str) -> int:
+        if bloc not in self._bloc_idx:
+            idx = len(self.blocs)
+            self.blocs.append(bloc)
+            self._bloc_idx[bloc] = idx
+        return self._bloc_idx[bloc]
+
+    def _get_prov_idx(self, province: str) -> int:
+        if province not in self._prov_idx:
+            idx = len(self.provinces)
+            self.provinces.append(province)
+            self._prov_idx[province] = idx
+        return self._prov_idx[province]
+
+    def add_votacion(self, raw: dict):
+        """Add a votacion in the raw (expanded) format, converting to compact."""
+        vid = str(raw.get("id", ""))
+        if vid in self._votacion_ids:
+            return  # already have it
+
+        compact_votes = []
+        for v in raw.get("votes", []):
+            name = v.get("name", "").strip()
+            if not name:
+                continue
+            ni = self._get_name_idx(name)
+            bi = self._get_bloc_idx(v.get("bloc", ""))
+            pi = self._get_prov_idx(v.get("province", ""))
+            vc = VOTE_ENCODE.get(v.get("vote", "").upper(), 0)
+            compact_votes.append([ni, bi, pi, vc])
+
+            # Track photo_id
+            photo_id = v.get("photo_id", "")
+            if photo_id:
+                self.photo_ids[str(ni)] = photo_id
+
+        entry = {
+            "id": vid,
+            "t": raw.get("title", ""),
+            "d": raw.get("date", ""),
+            "r": raw.get("result", ""),
+            "tp": raw.get("type", ""),
+            "p": raw.get("period", ""),
+            "a": raw.get("afirmativo", 0),
+            "n": raw.get("negativo", 0),
+            "b": raw.get("abstencion", 0),
+            "u": raw.get("ausente", 0),
+            "v": compact_votes,
+        }
+        self.votaciones.append(entry)
+        self._votacion_ids.add(vid)
+
+    def expand_votacion(self, compact: dict, chamber: str) -> dict:
+        """Convert a compact votacion back to the expanded format
+        used by generate_site.py."""
+        votes = []
+        for v in compact.get("v", []):
+            ni, bi, pi, vc = v
+            name = self.names[ni] if ni < len(self.names) else ""
+            bloc = self.blocs[bi] if bi < len(self.blocs) else ""
+            province = self.provinces[pi] if pi < len(self.provinces) else ""
+            vote_str = VOTE_DECODE.get(vc, "")
+            entry = {
+                "name": name,
+                "bloc": bloc,
+                "province": province,
+                "vote": vote_str,
+                "coalition": classify_bloc(bloc),
+            }
+            photo_id = self.photo_ids.get(str(ni), "")
+            if photo_id:
+                entry["photo_id"] = photo_id
+            votes.append(entry)
+
+        # compute URL for source page if possible
+        url = ""
+        if chamber == "diputados" and compact.get("id"):
+            url = f"{HCDN_BASE}/votacion/{compact.get('id')}"
+        elif chamber == "senadores" and compact.get("id"):
+            url = f"{SENADO_BASE}/votaciones/detalleActa/{compact.get('id')}"
+
+        return {
+            "id": compact.get("id", ""),
+            "chamber": chamber,
+            "url": url,
+            "title": compact.get("t", ""),
+            "date": compact.get("d", ""),
+            "result": compact.get("r", ""),
+            "type": compact.get("tp", ""),
+            "period": compact.get("p", ""),
+            "afirmativo": compact.get("a", 0),
+            "negativo": compact.get("n", 0),
+            "abstencion": compact.get("b", 0),
+            "ausente": compact.get("u", 0),
+            "votes": votes,
+        }
+
+    def expand_all(self, chamber: str) -> list[dict]:
+        """Expand all votaciones to the format used by generate_site.py."""
+        return [self.expand_votacion(v, chamber) for v in self.votaciones]
 
 
 # ---------------------------------------------------------------------------
 # HTTP helpers
 # ---------------------------------------------------------------------------
 
-def fetch(url: str, delay: float = REQUEST_DELAY, raise_for_status: bool = True) -> requests.Response | None:
+def fetch(url: str, delay: float = REQUEST_DELAY,
+          raise_for_status: bool = True) -> requests.Response | None:
     """Fetch a URL with rate limiting and error handling."""
     time.sleep(delay)
     try:
@@ -170,7 +334,9 @@ def fetch_soup(url: str, delay: float = REQUEST_DELAY) -> BeautifulSoup | None:
 # ---------------------------------------------------------------------------
 
 def download_photo(url: str, filename: str) -> bool:
-    """Download a photo to docs/fotos/. Returns True on success."""
+    """Download a photo to docs/fotos/. Returns True on success.
+    Skips download if file already exists and has content.
+    """
     dest = FOTOS_DIR / filename
     if dest.exists() and dest.stat().st_size > 500:
         return True  # already downloaded
@@ -193,11 +359,11 @@ def download_photo(url: str, filename: str) -> bool:
 def scrape_hcdn_votacion(votacion_id: str) -> dict | None:
     """Scrape a single HCDN votacion detail page.
 
-    Simply checks if the page at votaciones.hcdn.gob.ar/votacion/{id} exists
-    and has voting data. Returns the data dict or None.
+    Returns the data dict (raw format) or None if the page doesn't exist
+    or has no voting data.
     """
     url = f"{HCDN_BASE}/votacion/{votacion_id}"
-    resp = fetch(url, delay=0.3, raise_for_status=False)
+    resp = fetch(url, delay=REQUEST_DELAY, raise_for_status=False)
     if resp is None or resp.status_code != 200:
         return None
     soup = BeautifulSoup(resp.text, "lxml")
@@ -226,7 +392,9 @@ def scrape_hcdn_votacion(votacion_id: str) -> dict | None:
     title_el = soup.find("h4")
     if title_el:
         raw_title = title_el.get_text(strip=True)
-        date_match = re.search(r"(\d{2}/\d{2}/\d{4}\s*-?\s*\d{2}:\d{2})", raw_title)
+        date_match = re.search(
+            r"(\d{2}/\d{2}/\d{4}\s*-?\s*\d{2}:\d{2})", raw_title
+        )
         if date_match:
             result["date"] = date_match.group(1).strip()
             result["title"] = raw_title[:date_match.start()].strip()
@@ -271,7 +439,6 @@ def scrape_hcdn_votacion(votacion_id: str) -> dict | None:
             continue
 
     # Individual votes from the table
-    # Columns: [photo, NAME, BLOQUE, PROVINCIA, VOTE, optional]
     table = soup.find("table")
     if table:
         rows = table.find_all("tr")
@@ -305,89 +472,61 @@ def scrape_hcdn_votacion(votacion_id: str) -> dict | None:
 
 
 def scrape_diputados():
-    """Scrape all new Diputados votaciones.
+    """Scrape all Diputados votaciones.
 
-    Simple sequential approach: iterate IDs from 1 to HCDN_MAX_ID.
-    For each ID:
-      - skip if the file already exists on disk
-      - check if the page https://votaciones.hcdn.gob.ar/votacion/{id} exists
-      - if yes, scrape and save; if no, move to the next ID
-    Stop after HCDN_STOP_AFTER_MISS consecutive misses past the highest hit.
+    Iterates every ID from 1 to HCDN_MAX_ID — no early exit.
+    Skips IDs already in the consolidated database.
     """
     log.info("=" * 60)
-    log.info("SCRAPING DIPUTADOS")
+    log.info("SCRAPING DIPUTADOS (IDs 1 to %d)", HCDN_MAX_ID)
     log.info("=" * 60)
 
-    existing_index = load_index("diputados")
-
-    # IDs already on disk
-    existing_ids: set[int] = set()
-    for f in DIPUTADOS_DIR.glob("*.json"):
-        try:
-            existing_ids.add(int(f.stem))
-        except ValueError:
-            pass
-
-    log.info(f"Found {len(existing_ids)} existing diputados votaciones on disk")
+    db = ConsolidatedDB(DATA_DIR / "diputados.json")
+    db.load()
+    log.info(f"Existing DB: {len(db.votaciones)} votaciones, "
+             f"{len(db.names)} names")
 
     new_count = 0
-    consecutive_misses = 0
-    highest_hit = max(existing_ids) if existing_ids else 0
     checked = 0
 
     for vid_int in range(1, HCDN_MAX_ID + 1):
-        # Skip if already on disk
-        if vid_int in existing_ids:
-            consecutive_misses = 0  # reset — we know there's data here
+        vid = str(vid_int)
+
+        # Skip if already in database
+        if db.has_votacion(vid):
             continue
 
         checked += 1
-        vid = str(vid_int)
-
         data = scrape_hcdn_votacion(vid)
+
         if data and data.get("votes"):
-            save_json(DIPUTADOS_DIR / f"{vid}.json", data)
-            existing_index[vid] = {
-                "title": data.get("title", ""),
-                "date": data.get("date", ""),
-                "result": data.get("result", ""),
-            }
+            db.add_votacion(data)
             new_count += 1
-            consecutive_misses = 0
-            highest_hit = vid_int
 
-            if new_count % 25 == 0:
-                save_index("diputados", existing_index)
+            if new_count % 50 == 0:
+                db.save()
+                log.info(f"  Checkpoint: saved {new_count} new "
+                         f"(ID {vid}, checked {checked})")
 
-            log.info(f"  [{vid}] Saved ({new_count} new, {checked} checked): "
-                     f"{data.get('title', 'Unknown')[:80]}")
-        else:
-            consecutive_misses += 1
+            log.info(f"  [{vid}] Saved: {data.get('title', '')[:80]}")
 
         # Log progress periodically
-        if checked % 200 == 0:
+        if checked % 500 == 0:
             log.info(f"  Progress: checked {checked}, saved {new_count} new, "
-                     f"at ID {vid_int}, consecutive misses: {consecutive_misses}")
+                     f"at ID {vid_int}")
 
-        # Stop condition: many consecutive misses past the highest known hit
-        if vid_int > highest_hit and consecutive_misses >= HCDN_STOP_AFTER_MISS:
-            log.info(f"  Stopping: {consecutive_misses} consecutive misses "
-                     f"past highest hit ({highest_hit})")
-            break
-
-    save_index("diputados", existing_index)
+    db.save()
     log.info(f"Diputados: scraped {new_count} new votaciones "
-             f"(checked {checked} IDs, highest hit: {highest_hit})")
+             f"(checked {checked} IDs, total in DB: {len(db.votaciones)})")
 
 
 # ===========================================================================
 #  SENADO SCRAPER
 # ===========================================================================
 
-def scrape_senado_actas_list(year: int) -> list[dict]:
+def scrape_senado_actas_list(year: int, existing_ids: set[str]) -> list[dict]:
     """Scrape the list of actas from the Senado for a given year."""
     log.info(f"=== Scraping Senado actas list for {year} ===")
-    existing_index = load_index("senadores")
 
     url = f"{SENADO_BASE}/votaciones/actas"
     actas = []
@@ -399,7 +538,9 @@ def scrape_senado_actas_list(year: int) -> list[dict]:
             break
 
         soup = BeautifulSoup(resp.text, "lxml")
-        detail_links = soup.find_all("a", href=re.compile(r"/votaciones/detalleActa/(\d+)"))
+        detail_links = soup.find_all(
+            "a", href=re.compile(r"/votaciones/detalleActa/(\d+)")
+        )
 
         if not detail_links:
             break
@@ -408,7 +549,7 @@ def scrape_senado_actas_list(year: int) -> list[dict]:
             match = re.search(r"/votaciones/detalleActa/(\d+)", link["href"])
             if match:
                 acta_id = match.group(1)
-                if acta_id not in existing_index:
+                if acta_id not in existing_ids:
                     actas.append({
                         "id": acta_id,
                         "text": link.get_text(strip=True),
@@ -446,7 +587,9 @@ def scrape_senado_votacion(acta_id: str) -> dict | None:
         "votes": [],
     }
 
-    content = soup.find("div", class_=re.compile("content|main|votacion", re.I))
+    content = soup.find(
+        "div", class_=re.compile("content|main|votacion", re.I)
+    )
     if not content:
         content = soup
 
@@ -486,12 +629,16 @@ def scrape_senado_votacion(acta_id: str) -> dict | None:
         result["date"] = date_match.group(0).strip()
 
     # Result
-    for text in content.find_all(string=re.compile(r"AFIRMATIVO|NEGATIVO", re.I)):
+    for text in content.find_all(
+        string=re.compile(r"AFIRMATIVO|NEGATIVO", re.I)
+    ):
         result["result"] = text.strip()
         break
 
     # Type
-    for text in content.find_all(string=re.compile(r"EN GENERAL|EN PARTICULAR", re.I)):
+    for text in content.find_all(
+        string=re.compile(r"EN GENERAL|EN PARTICULAR", re.I)
+    ):
         result["type"] = text.strip()
         break
 
@@ -539,129 +686,81 @@ def scrape_senado_votacion(acta_id: str) -> dict | None:
     return result
 
 
+def scrape_senadores():
+    """Scrape all new Senado votaciones."""
+    log.info("=" * 60)
+    log.info("SCRAPING SENADORES")
+    log.info("=" * 60)
+
+    db = ConsolidatedDB(DATA_DIR / "senadores.json")
+    db.load()
+    existing_ids = db._votacion_ids.copy()
+    log.info(f"Existing DB: {len(db.votaciones)} votaciones")
+
+    new_count = 0
+    for year in SENADO_YEARS:
+        actas = scrape_senado_actas_list(year, existing_ids)
+
+        for acta in actas:
+            aid = acta["id"]
+            if db.has_votacion(aid):
+                log.info(f"  Skipping senado votacion {aid} (already exists)")
+                continue
+
+            log.info(f"  Scraping senado votacion {aid}...")
+            data = scrape_senado_votacion(aid)
+            if data and data.get("votes"):
+                db.add_votacion(data)
+                new_count += 1
+                log.info(f"    Saved: {data.get('title', 'Unknown')[:80]}")
+            else:
+                log.warning(f"    No vote data for senado votacion {aid}")
+
+    db.save()
+    log.info(f"Senadores: scraped {new_count} new votaciones "
+             f"(total in DB: {len(db.votaciones)})")
+
+
 # ===========================================================================
 #  PHOTO SCRAPERS
 # ===========================================================================
 
-def _patch_photo_ids(fpath: Path) -> bool:
-    """Re-fetch an HCDN votacion page to extract photo_ids into an existing file.
-
-    Returns True if the file was updated.
-    """
-    try:
-        with open(fpath, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return False
-
-    # Check if any vote already has a photo_id
-    if any(v.get("photo_id") for v in data.get("votes", [])):
-        return False  # already patched
-
-    vid = data.get("id", fpath.stem)
-    url = f"{HCDN_BASE}/votacion/{vid}"
-    resp = fetch(url, delay=0.3, raise_for_status=False)
-    if resp is None or resp.status_code != 200:
-        return False
-
-    soup = BeautifulSoup(resp.text, "lxml")
-    table = soup.find("table")
-    if not table:
-        return False
-
-    # Build a name -> photo_id map from the page
-    page_photos: dict[str, str] = {}
-    for row in table.find_all("tr"):
-        cells = row.find_all("td")
-        if len(cells) >= 5:
-            photo_link = cells[0].find("a", href=True)
-            if photo_link:
-                pid = photo_link["href"].rstrip("/").split("/")[-1]
-                name = cells[1].get_text(strip=True)
-                if pid and name:
-                    page_photos[name] = pid
-
-    if not page_photos:
-        return False
-
-    # Patch the votes
-    changed = False
-    for v in data.get("votes", []):
-        name = v.get("name", "").strip()
-        if name in page_photos and "photo_id" not in v:
-            v["photo_id"] = page_photos[name]
-            changed = True
-
-    if changed:
-        save_json(fpath, data)
-
-    return changed
-
-
 def scrape_diputados_photos():
-    """Download diputado photos from HCDN voting pages.
-
-    Reads the already-scraped votacion JSON files to collect photo_ids,
-    then downloads each unique photo. If existing files lack photo_ids,
-    re-fetches the page to extract them first.
-    """
+    """Download diputado photos using photo_ids from the consolidated DB."""
     log.info("=" * 60)
     log.info("DOWNLOADING DIPUTADOS PHOTOS")
     log.info("=" * 60)
 
-    # First pass: patch files missing photo_ids
-    files_to_patch = []
-    for fpath in sorted(DIPUTADOS_DIR.glob("*.json")):
-        try:
-            with open(fpath, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            has_photos = any(v.get("photo_id") for v in data.get("votes", []))
-            if not has_photos and data.get("votes"):
-                files_to_patch.append(fpath)
-        except (json.JSONDecodeError, OSError):
-            continue
+    db = ConsolidatedDB(DATA_DIR / "diputados.json")
+    db.load()
 
-    if files_to_patch:
-        log.info(f"Patching {len(files_to_patch)} files missing photo_ids...")
-        patched = 0
-        for fpath in files_to_patch:
-            if _patch_photo_ids(fpath):
-                patched += 1
-                if patched % 25 == 0:
-                    log.info(f"  Patched {patched}/{len(files_to_patch)}")
-        log.info(f"  Patched {patched} files with photo_ids")
+    if not db.photo_ids:
+        log.warning("No photo_ids found in diputados database")
+        return
 
-    # Collect unique (name -> photo_id) from scraped data
-    photo_map: dict[str, str] = {}  # name -> photo_id
-    for fpath in sorted(DIPUTADOS_DIR.glob("*.json")):
-        try:
-            with open(fpath, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            for v in data.get("votes", []):
-                pid = v.get("photo_id", "")
-                name = v.get("name", "").strip()
-                if pid and name:
-                    photo_map[name] = pid
-        except (json.JSONDecodeError, OSError):
-            continue
-
-    log.info(f"Found {len(photo_map)} unique diputados with photo IDs")
-
+    name_to_file: dict[str, str] = {}
     downloaded = 0
-    for name, photo_id in photo_map.items():
+    skipped = 0
+
+    for ni_str, photo_id in db.photo_ids.items():
+        ni = int(ni_str)
+        if ni >= len(db.names):
+            continue
+        name = db.names[ni]
+
         url = f"{HCDN_BASE}/assets/diputados/{photo_id}"
         filename = f"dip_{photo_id}.jpg"
-        if download_photo(url, filename):
-            downloaded += 1
+        dest = FOTOS_DIR / filename
 
-    log.info(f"Downloaded {downloaded} diputado photos")
-
-    # Save the name->filename mapping
-    name_to_file = {}
-    for name, photo_id in photo_map.items():
-        filename = f"dip_{photo_id}.jpg"
-        if (FOTOS_DIR / filename).exists():
+        if dest.exists() and dest.stat().st_size > 500:
+            skipped += 1
             name_to_file[name] = filename
+        elif download_photo(url, filename):
+            downloaded += 1
+            name_to_file[name] = filename
+
+    log.info(f"Diputado photos: {downloaded} new, {skipped} already existed")
+
     save_json(DATA_DIR / "diputados_photos.json", name_to_file)
     log.info(f"Saved diputados photo mapping ({len(name_to_file)} entries)")
 
@@ -672,6 +771,10 @@ def scrape_senadores_photos():
     log.info("DOWNLOADING SENADORES PHOTOS")
     log.info("=" * 60)
 
+    # The open-data JSON endpoint provides a list of senators, but the
+    # FOTO field is often empty or unreliable.  Instead construct the image
+    # URL using the known pattern "fsenaG/<id>.gif" which is what the site
+    # actually serves for each senator.
     url = f"{SENADO_BASE}/micrositios/DatosAbiertos/ExportarListadoSenadores/json"
     resp = fetch(url, delay=0.5)
     if resp is None:
@@ -689,67 +792,325 @@ def scrape_senadores_photos():
 
     name_to_file: dict[str, str] = {}
     downloaded = 0
+    skipped = 0
 
     for row in rows:
         sen_id = row.get("ID", "")
         apellido = row.get("APELLIDO", "").strip()
         nombre = row.get("NOMBRE", "").strip()
-        foto_url = row.get("FOTO", "")
 
-        if not sen_id or not foto_url:
+        if not sen_id:
             continue
 
-        # Build name in format "APELLIDO, Nombre" to match voting data
-        full_name = f"{apellido}, {nombre}".strip()
+        # build URL using fsenaG pattern
+        foto_url = f"{SENADO_BASE}/bundles/senadosenadores/images/fsenaG/{sen_id}.gif"
 
+        full_name = f"{apellido}, {nombre}".strip()
         filename = f"sen_{sen_id}.gif"
-        if download_photo(foto_url, filename):
+        dest = FOTOS_DIR / filename
+
+        if dest.exists() and dest.stat().st_size > 500:
+            skipped += 1
+            name_to_file[full_name] = filename
+        elif download_photo(foto_url, filename):
             downloaded += 1
             name_to_file[full_name] = filename
 
-    log.info(f"Downloaded {downloaded} senator photos")
+    log.info(f"Senator photos: {downloaded} new, {skipped} already existed")
     save_json(DATA_DIR / "senadores_photos.json", name_to_file)
     log.info(f"Saved senadores photo mapping ({len(name_to_file)} entries)")
 
 
 # ===========================================================================
-#  SENADO ORCHESTRATION
+#  WIKIPEDIA / WIKIDATA PHOTO FALLBACK
 # ===========================================================================
 
-def scrape_senadores():
-    """Scrape all new Senado votaciones."""
-    log.info("=" * 60)
-    log.info("SCRAPING SENADORES")
-    log.info("=" * 60)
+WIKI_ES_API = "https://es.wikipedia.org/w/api.php"
+WIKI_EN_API = "https://en.wikipedia.org/w/api.php"
+WIKIDATA_API = "https://www.wikidata.org/w/api.php"
 
-    existing_index = load_index("senadores")
+# Thumb size for Wikipedia photos (pixels on longest side)
+WIKI_THUMB_SIZE = 300
 
-    new_count = 0
-    for year in SENADO_YEARS:
-        actas = scrape_senado_actas_list(year)
 
-        for acta in actas:
-            aid = acta["id"]
-            if votacion_exists("senadores", aid):
-                log.info(f"  Skipping senado votacion {aid} (already exists)")
+def _name_to_search_query(name: str, chamber: str = "diputado") -> str:
+    """Convert 'LASTNAME, Firstname' to a Wikipedia search query.
+
+    Examples:
+        'ABAD, Maximiliano' -> 'Maximiliano Abad diputado Argentina'
+        'KIRCHNER, Cristina Fernández de' -> 'Cristina Fernández de Kirchner'
+    """
+    name = name.strip()
+    # Remove noise like "Legislador 2", "NO INCORPORADO"
+    if "NO INCORPORADO" in name.upper() or "LEGISLADOR" in name.upper():
+        return ""
+
+    # Handle "LASTNAME, Firstname" format
+    if "," in name:
+        parts = name.split(",", 1)
+        lastname = parts[0].strip().title()
+        firstname = parts[1].strip().title() if len(parts) > 1 else ""
+        search_name = f"{firstname} {lastname}".strip()
+    else:
+        search_name = name.strip().title()
+
+    chamber_term = "diputado" if chamber == "diputados" else "senador"
+    return f"{search_name} {chamber_term} Argentina"
+
+
+def _safe_filename(name: str) -> str:
+    """Generate a safe filename from a legislator name."""
+    # Normalize unicode, keep only alphanumeric and underscores
+    nfkd = unicodedata.normalize("NFKD", name)
+    ascii_name = nfkd.encode("ascii", "ignore").decode("ascii")
+    safe = re.sub(r"[^a-zA-Z0-9]+", "_", ascii_name).strip("_").lower()
+    # Truncate and add a short hash for uniqueness
+    if len(safe) > 40:
+        safe = safe[:40]
+    name_hash = hashlib.md5(name.encode("utf-8")).hexdigest()[:6]
+    return f"wiki_{safe}_{name_hash}"
+
+
+def search_wikipedia_photo(name: str, chamber: str = "diputados") -> str | None:
+    """Search Wikipedia for a legislator's photo.
+
+    Strategy:
+    1. Search Spanish Wikipedia for the person
+    2. Get the page's main image (pageimages API)
+    3. If not found, try English Wikipedia
+    4. If still not found, try Wikidata image property (P18)
+
+    Returns the thumbnail URL or None.
+    """
+    query = _name_to_search_query(name, chamber)
+    if not query:
+        return None
+
+    # --- Try Spanish Wikipedia first ---
+    url = search_wikipedia_photo_from_wiki(query, WIKI_ES_API)
+    if url:
+        return url
+
+    # --- Try English Wikipedia ---
+    url = search_wikipedia_photo_from_wiki(query, WIKI_EN_API)
+    if url:
+        return url
+
+    # --- Try Wikidata as last resort ---
+    return search_wikidata_photo(query)
+
+
+def search_wikipedia_photo_from_wiki(
+    query: str, api_base: str
+) -> str | None:
+    """Search a Wikipedia instance and return the thumbnail URL of the
+    best matching article's main image."""
+    # Step 1: Search for the article
+    search_params = {
+        "action": "query",
+        "list": "search",
+        "srsearch": query,
+        "format": "json",
+        "srlimit": 3,
+        "srprop": "snippet",
+    }
+    try:
+        time.sleep(0.2)  # Be respectful to Wikipedia
+        resp = SESSION.get(api_base, params=search_params, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+    except (requests.RequestException, json.JSONDecodeError, ValueError):
+        return None
+
+    results = data.get("query", {}).get("search", [])
+    if not results:
+        return None
+
+    # Check the top results for a page with an image
+    for result in results:
+        title = result.get("title", "")
+        if not title:
+            continue
+
+        # Filter: snippet should mention politics/diputado/senador/legislador
+        # to avoid false matches (e.g. a football player with same name)
+        snippet = result.get("snippet", "").lower()
+        # For the first result, accept it even without political keywords
+        # For subsequent results, require some political context
+        if result != results[0]:
+            political_kw = [
+                "diputad", "senad", "legislad", "polític", "politic",
+                "congres", "cámara", "camara", "bloque", "partido",
+                "radical", "peronist", "justiciali", "ucr",
+                "libertad avanza", "pro ", "kirchner",
+            ]
+            if not any(kw in snippet for kw in political_kw):
                 continue
 
-            log.info(f"  Scraping senado votacion {aid}...")
-            data = scrape_senado_votacion(aid)
-            if data and data.get("votes"):
-                save_json(SENADORES_DIR / f"{aid}.json", data)
-                existing_index[aid] = {
-                    "title": data.get("title", ""),
-                    "date": data.get("date", ""),
-                    "result": data.get("result", ""),
-                }
-                new_count += 1
-                log.info(f"    Saved: {data.get('title', 'Unknown')[:80]}")
-            else:
-                log.warning(f"    No vote data found for senado votacion {aid}")
+        # Step 2: Get pageimages for this article
+        img_params = {
+            "action": "query",
+            "titles": title,
+            "prop": "pageimages",
+            "format": "json",
+            "pithumbsize": WIKI_THUMB_SIZE,
+        }
+        try:
+            time.sleep(0.15)
+            resp = SESSION.get(api_base, params=img_params, timeout=15)
+            resp.raise_for_status()
+            img_data = resp.json()
+        except (requests.RequestException, json.JSONDecodeError, ValueError):
+            continue
 
-    save_index("senadores", existing_index)
-    log.info(f"Senadores: scraped {new_count} new votaciones")
+        pages = img_data.get("query", {}).get("pages", {})
+        for page_id, page_info in pages.items():
+            thumb = page_info.get("thumbnail", {})
+            source = thumb.get("source", "")
+            if source:
+                return source
+
+    return None
+
+
+def search_wikidata_photo(query: str) -> str | None:
+    """Search Wikidata for a person and return their P18 (image) property
+    as a Wikimedia Commons thumbnail URL."""
+    # Search Wikidata for the entity
+    search_params = {
+        "action": "wbsearchentities",
+        "search": query.replace(" diputado Argentina", "").replace(
+            " senador Argentina", ""
+        ),
+        "language": "es",
+        "format": "json",
+        "limit": 3,
+        "type": "item",
+    }
+    try:
+        time.sleep(0.2)
+        resp = SESSION.get(WIKIDATA_API, params=search_params, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+    except (requests.RequestException, json.JSONDecodeError, ValueError):
+        return None
+
+    entities = data.get("search", [])
+    for entity in entities:
+        entity_id = entity.get("id", "")
+        if not entity_id:
+            continue
+
+        # Fetch the entity's P18 (image) claim
+        claims_params = {
+            "action": "wbgetclaims",
+            "entity": entity_id,
+            "property": "P18",
+            "format": "json",
+        }
+        try:
+            time.sleep(0.15)
+            resp = SESSION.get(
+                WIKIDATA_API, params=claims_params, timeout=15
+            )
+            resp.raise_for_status()
+            claims_data = resp.json()
+        except (requests.RequestException, json.JSONDecodeError, ValueError):
+            continue
+
+        claims = claims_data.get("claims", {}).get("P18", [])
+        if not claims:
+            continue
+
+        # Get the image filename from the first claim
+        try:
+            image_name = (
+                claims[0]["mainsnak"]["datavalue"]["value"]
+            )
+        except (KeyError, IndexError):
+            continue
+
+        if image_name:
+            # Convert Commons filename to a thumbnail URL
+            safe_name = image_name.replace(" ", "_")
+            # Use Wikimedia Commons thumb API
+            md5 = hashlib.md5(safe_name.encode("utf-8")).hexdigest()
+            encoded_name = quote(safe_name)
+            thumb_url = (
+                f"https://upload.wikimedia.org/wikipedia/commons/thumb/"
+                f"{md5[0]}/{md5[:2]}/{encoded_name}/"
+                f"{WIKI_THUMB_SIZE}px-{encoded_name}"
+            )
+            # Commons may serve .jpg for .svg etc, try adding .jpg suffix
+            # for non-raster formats
+            if safe_name.lower().endswith(".svg"):
+                thumb_url += ".jpg"
+            return thumb_url
+
+    return None
+
+
+def _collect_names_missing_photos(
+    chamber: str,
+) -> list[str]:
+    """Get list of legislator names that don't have photos yet."""
+    if chamber == "diputados":
+        db_path = DATA_DIR / "diputados.json"
+        photos_path = DATA_DIR / "diputados_photos.json"
+    else:
+        db_path = DATA_DIR / "senadores.json"
+        photos_path = DATA_DIR / "senadores_photos.json"
+
+    if not db_path.exists():
+        return []
+
+    db = ConsolidatedDB(db_path)
+    db.load()
+    all_names = set(db.names)
+
+    # Load existing photo mappings
+    existing_photos: set[str] = set()
+    if photos_path.exists():
+        try:
+            with open(photos_path, "r", encoding="utf-8") as f:
+                existing_photos = set(json.load(f).keys())
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # previous versions loaded wiki photos for fallback, but we no longer
+    # use that source so skip this step.
+
+    # Filter out names that already have photos and noise entries
+    missing = []
+    for name in sorted(all_names):
+        if name in existing_photos:
+            continue
+        # Skip noise entries
+        upper = name.upper()
+        if "NO INCORPORADO" in upper or "LEGISLADOR" in upper:
+            continue
+        if len(name) < 4:
+            continue
+        missing.append(name)
+
+    return missing
+
+
+
+# ---------------------------------------------------------------------------
+# Persistence helpers
+# ---------------------------------------------------------------------------
+
+def ensure_dirs():
+    """Create data directories if they don't exist."""
+    for d in [DATA_DIR, FOTOS_DIR]:
+        d.mkdir(parents=True, exist_ok=True)
+
+
+def save_json(path: Path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
 
 
 # ===========================================================================
@@ -759,13 +1120,14 @@ def scrape_senadores():
 def main():
     ensure_dirs()
 
-    log.info("Como Voto - Data Scraper")
+    log.info("Como Voto - Data Scraper v2 (consolidated JSON)")
     log.info(f"Data directory: {DATA_DIR}")
 
     # Parse CLI args
     # Usage: python scraper.py [diputados] [senadores] [fotos]
     # Default: all three
-    args = [a.lower() for a in sys.argv[1:]] if len(sys.argv) > 1 else ["diputados", "senadores", "fotos"]
+    args = [a.lower() for a in sys.argv[1:]] \
+        if len(sys.argv) > 1 else ["diputados", "senadores", "fotos"]
 
     if "diputados" in args:
         scrape_diputados()
