@@ -29,8 +29,9 @@ const DATA_PATH = "data";
 // Notable laws — these are the ones we show on the homepage infographic
 const NOTABLE_LAW_KEYWORDS = [
     "Ley Bases",
+    "Ley de Bases",
     "Paquete Fiscal",
-    "RIGI",
+    "Inversiones",
     "DNU 70/2023",
     "Reforma Laboral",
     "Financiamiento Universitario",
@@ -41,110 +42,8 @@ const NOTABLE_LAW_KEYWORDS = [
     "IVE / Aborto",
     "Presupuesto",
     "Impuesto a las Ganancias",
+    "Ciencia y Tecnología"
 ];
-
-// ===========================================================================
-//  INITIALIZATION
-// ===========================================================================
-
-document.addEventListener("DOMContentLoaded", () => {
-    loadGlobalData();
-    setupEventListeners();
-});
-
-async function loadGlobalData() {
-    try {
-        const [statsResp, legsResp] = await Promise.all([
-            fetch(`${DATA_PATH}/stats.json`),
-            fetch(`${DATA_PATH}/legislators.json`),
-        ]);
-
-        if (statsResp.ok) {
-            const stats = await statsResp.json();
-            renderStats(stats);
-        }
-
-        if (legsResp.ok) {
-            legislatorsData = await legsResp.json();
-            console.log(`Loaded ${legislatorsData.length} legislators`);
-        } else {
-            legislatorsData = [];
-        }
-    } catch (err) {
-        console.error("Error loading data:", err);
-    }
-}
-
-function renderStats(stats) {
-    setText("stat-legislators", stats.total_legislators || 0);
-    setText(
-        "stat-votaciones",
-        (stats.total_votaciones_diputados || 0) + (stats.total_votaciones_senadores || 0)
-    );
-    setText("stat-years", (stats.years_covered || []).length);
-    if (stats.last_updated) {
-        const d = new Date(stats.last_updated);
-        setText("stat-updated", d.toLocaleDateString("es-AR"));
-    }
-}
-
-// ===========================================================================
-//  EVENT LISTENERS
-// ===========================================================================
-
-function setupEventListeners() {
-    const searchInput = document.getElementById("search-input");
-    const clearBtn = document.getElementById("clear-search");
-    const filterChamber = document.getElementById("filter-chamber");
-    const filterCoalition = document.getElementById("filter-coalition");
-    const filterProvince = document.getElementById("filter-province");
-    const backBtn = document.getElementById("back-btn");
-
-    searchInput.addEventListener("input", debounce(onSearchInput, 150));
-    searchInput.addEventListener("focus", onSearchInput);
-    clearBtn.addEventListener("click", () => {
-        searchInput.value = "";
-        hideSearchResults();
-        searchInput.focus();
-    });
-    filterChamber.addEventListener("change", onSearchInput);
-    filterCoalition.addEventListener("change", onSearchInput);
-    if (filterProvince) filterProvince.addEventListener("change", onSearchInput);
-    backBtn.addEventListener("click", showSearchView);
-
-    document.addEventListener("click", (e) => {
-        const searchBox = document.querySelector(".search-box");
-        if (!searchBox.contains(e.target)) {
-            hideSearchResults();
-        }
-        // Also close notable dropdown
-        const notableRow = document.querySelector(".notable-search-row");
-        if (notableRow && !notableRow.contains(e.target)) {
-            document.getElementById("notable-search-results").classList.add("hidden");
-        }
-    });
-
-    // Vote table filters
-    document.getElementById("votes-year-filter").addEventListener("change", () => { currentVotesPage = 1; renderVotesTable(); });
-    document.getElementById("votes-type-filter").addEventListener("change", () => { currentVotesPage = 1; renderVotesTable(); });
-    document.getElementById("votes-law-filter").addEventListener("input", debounce(() => { currentVotesPage = 1; renderVotesTable(); }, 200));
-
-    // Waffle filters
-    document.getElementById("waffle-year-filter").addEventListener("change", () => { currentWafflePage = 1; renderWaffle(); });
-    document.getElementById("waffle-law-filter").addEventListener("input", debounce(() => { currentWafflePage = 1; renderWaffle(); }, 200));
-
-    // Share buttons (legislator detail waffle)
-    document.getElementById("btn-copy-image").addEventListener("click", copyWaffleImage);
-    document.getElementById("btn-share-tw").addEventListener("click", shareTwitter);
-
-    // Notable laws section
-    const notableSearch = document.getElementById("notable-search");
-    notableSearch.addEventListener("input", debounce(onNotableSearchInput, 150));
-    notableSearch.addEventListener("focus", onNotableSearchInput);
-
-    document.getElementById("btn-copy-notable").addEventListener("click", () => copyCardImage("notable-card", "btn-copy-notable"));
-    document.getElementById("btn-share-notable-tw").addEventListener("click", shareTwitterNotable);
-}
 
 // ===========================================================================
 //  SEARCH
@@ -444,9 +343,10 @@ function renderLegislatorDetail(data) {
     alignSummary.innerHTML = "";
 
     const coalitions = [
-        { key: "PJ", label: "PJ / UxP", cls: "alignment-pj" },
-        { key: "PRO", label: "PRO / JxC", cls: "alignment-pro" },
-        { key: "LLA", label: "LLA", cls: "alignment-lla" },
+        { key: "PJ", label: "PJ / UxP / FdT", cls: "alignment-pj" },
+        { key: "UCR", label: "UCR / ARI", cls: "alignment-ucr" },
+        { key: "PRO", label: "JxC / PRO / UCR", cls: "alignment-pro" },
+        { key: "LLA", label: "LLA / PRO", cls: "alignment-lla" },
     ];
 
     for (const c of coalitions) {
@@ -713,6 +613,7 @@ function renderAlignmentChart(data) {
     }
 
     const pjData = years.map((y) => data.yearly_alignment[y]?.PJ ?? null);
+    const ucrData = years.map((y) => data.yearly_alignment[y]?.UCR ?? null);
     const proData = years.map((y) => data.yearly_alignment[y]?.PRO ?? null);
     const llaData = years.map((y) => data.yearly_alignment[y]?.LLA ?? null);
 
@@ -722,7 +623,7 @@ function renderAlignmentChart(data) {
             labels: years,
             datasets: [
                 {
-                    label: "PJ / Unión por la Patria",
+                    label: "PJ / UxP / FdT",
                     data: pjData,
                     borderColor: "#1e88e5",
                     backgroundColor: "rgba(30, 136, 229, 0.08)",
@@ -733,8 +634,20 @@ function renderAlignmentChart(data) {
                     fill: false,
                     spanGaps: true,
                 },
+                    {
+                        label: "UCR / ARI",
+                        data: ucrData,
+                        borderColor: "#ef4444",
+                        backgroundColor: "rgba(239,68,68,0.06)",
+                        borderWidth: 3,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        tension: 0.3,
+                        fill: false,
+                        spanGaps: true,
+                    },
                 {
-                    label: "PRO / JxC / UCR",
+                    label: "JxC / PRO / UCR",
                     data: proData,
                     borderColor: "#f9a825",
                     backgroundColor: "rgba(249, 168, 37, 0.08)",
@@ -746,7 +659,7 @@ function renderAlignmentChart(data) {
                     spanGaps: true,
                 },
                 {
-                    label: "La Libertad Avanza",
+                    label: "LLA / PRO",
                     data: llaData,
                     borderColor: "#7b1fa2",
                     backgroundColor: "rgba(123, 31, 162, 0.08)",
@@ -776,7 +689,7 @@ function renderAlignmentChart(data) {
             scales: {
                 y: {
                     min: 0,
-                    max: 100,
+                    max: 104,
                     ticks: {
                         callback: (v) => v + "%",
                         font: { size: 11 },
@@ -909,6 +822,15 @@ function renderVotesTable() {
                 if (href) {
                     linkHtml = `<a class="vote-link" href="${escapeAttr(href)}" target="_blank" title="Ver votación original">🔗</a>`;
                 }
+                // determine which opposition coalition applies for this vote's year
+                const yr = v.yr || null;
+                const oppKey = yr === null ? null : (yr <= 2014 ? 'UCR' : (yr <= 2023 ? 'JxC' : 'LLA'));
+
+                const pjCell = `<span class="vote-chip vote-${v.pj}">${formatVote(v.pj)}</span>`;
+                const ucrCell = (oppKey === 'UCR' && v.ucr) ? `<span class="vote-chip vote-${v.ucr}">${formatVote(v.ucr)}</span>` : `<span class="vote-chip vote-na">-</span>`;
+                const jxcCell = (oppKey === 'JxC' && v.pro) ? `<span class="vote-chip vote-${v.pro}">${formatVote(v.pro)}</span>` : `<span class="vote-chip vote-na">-</span>`;
+                const llaCell = (oppKey === 'LLA' && v.lla) ? `<span class="vote-chip vote-${v.lla}">${formatVote(v.lla)}</span>` : `<span class="vote-chip vote-na">-</span>`;
+
                 return `
         <tr>
             <td style="white-space:nowrap">${escapeHtml(v.d || "")}</td>
@@ -918,9 +840,10 @@ function renderVotesTable() {
             </td>
             <td class="vote-source-cell">${linkHtml}</td>
             <td><span class="vote-chip vote-${v.v}">${formatVote(v.v)}</span></td>
-            <td><span class="vote-chip vote-${v.pj}">${formatVote(v.pj)}</span></td>
-            <td><span class="vote-chip vote-${v.pro}">${formatVote(v.pro)}</span></td>
-            <td><span class="vote-chip vote-${v.lla}">${formatVote(v.lla)}</span></td>
+            <td>${pjCell}</td>
+            <td>${ucrCell}</td>
+            <td>${jxcCell}</td>
+            <td>${llaCell}</td>
         </tr>`;
             }
         )
@@ -1038,3 +961,61 @@ function parseArgDate(dateStr) {
     }
     return new Date(dateStr).getTime() || 0;
 }
+
+
+// -------------------------------------------------------------------------
+// Initialization: load stats and legislators index, wire basic UI events
+// -------------------------------------------------------------------------
+(async function initApp() {
+    try {
+        const sresp = await fetch(`${DATA_PATH}/stats.json`);
+        if (sresp.ok) {
+            const stats = await sresp.json();
+            const legsEl = document.getElementById("stat-legislators");
+            const votEl = document.getElementById("stat-votaciones");
+            const yrsEl = document.getElementById("stat-years");
+            const updEl = document.getElementById("stat-updated");
+
+            if (legsEl) legsEl.textContent = stats.total_legislators ?? "-";
+            const totalVot = (stats.total_votaciones_diputados || 0) + (stats.total_votaciones_senadores || 0);
+            if (votEl) votEl.textContent = totalVot || "-";
+            const years = stats.years_covered || [];
+            if (yrsEl) yrsEl.textContent = years.length ? `${years[0]}–${years[years.length - 1]}` : "-";
+            if (updEl) updEl.textContent = stats.last_updated ? new Date(stats.last_updated).toLocaleString() : "-";
+        } else {
+            console.warn("Could not load stats.json", sresp.status);
+        }
+    } catch (err) {
+        console.error("Error loading stats.json:", err);
+    }
+
+    try {
+        const lresp = await fetch(`${DATA_PATH}/legislators.json`);
+        if (lresp.ok) {
+            legislatorsData = await lresp.json();
+        } else {
+            console.warn("Could not load legislators.json", lresp.status);
+        }
+    } catch (err) {
+        console.error("Error loading legislators.json:", err);
+    }
+
+    // Wire search and basic controls
+    const sin = document.getElementById("search-input");
+    if (sin) sin.addEventListener("input", debounce(onSearchInput, 250));
+    const clearBtn = document.getElementById("clear-search");
+    if (clearBtn) clearBtn.addEventListener("click", () => { document.getElementById("search-input").value = ""; hideSearchResults(); });
+    const chamberSel = document.getElementById("filter-chamber");
+    if (chamberSel) chamberSel.addEventListener("change", onSearchInput);
+    const coalitionSel = document.getElementById("filter-coalition");
+    if (coalitionSel) coalitionSel.addEventListener("change", onSearchInput);
+
+    const backBtn = document.getElementById("back-btn");
+    if (backBtn) backBtn.addEventListener("click", showSearchView);
+
+    const notableInput = document.getElementById("notable-search");
+    if (notableInput) notableInput.addEventListener("input", debounce(onNotableSearchInput, 200));
+
+    // Populate initial small search result if desired (empty/hidden)
+    hideSearchResults();
+})();

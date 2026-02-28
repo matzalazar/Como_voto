@@ -14,6 +14,7 @@
 
     /* Party colors */
     --color-pj: #1e88e5;
+    --color-ucr: #ef4444;
     --color-pro: #fdd835;
     --color-lla: #7b1fa2;
     --color-other: #78909c;
@@ -258,8 +259,13 @@ body {
 }
 
 .badge-pro {
-    background: rgba(253, 216, 53, 0.2);
-    color: #9a8700;
+    background: rgba(249, 168, 37, 0.12);
+    color: #f9a825;
+}
+
+.badge-ucr {
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--color-ucr);
 }
 
 .badge-lla {
@@ -418,8 +424,10 @@ body {
 
 .alignment-pj .alignment-label { color: var(--color-pj); }
 .alignment-pj .alignment-value { color: var(--color-pj); }
-.alignment-pro .alignment-label { color: #9a8700; }
-.alignment-pro .alignment-value { color: #9a8700; }
+.alignment-ucr .alignment-label { color: var(--color-negativo); }
+.alignment-ucr .alignment-value { color: var(--color-negativo); }
+.alignment-pro .alignment-label { color: #f9a825; }
+.alignment-pro .alignment-value { color: #f9a825; }
 .alignment-lla .alignment-label { color: var(--color-lla); }
 .alignment-lla .alignment-value { color: var(--color-lla); }
 
@@ -613,26 +621,6 @@ body {
     z-index: 2;
 }
 
-/* "En General" votes: larger tile with a bold outline */
-.waffle-tile.tile-general {
-    width: 34px;
-    height: 34px;
-    font-size: 0.85rem;
-    border: 2.5px solid currentColor;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-    border-radius: 6px;
-}
-
-/* Legend swatch for "voto en general" */
-.tile-general-legend {
-    width: 14px;
-    height: 14px;
-    border-radius: 3px;
-    display: inline-block;
-    background: #e5e7eb;
-    border: 2.5px solid #6b7280;
-}
-
 .tile-AFIRMATIVO {
     background: #dcfce7;
     color: #16a34a;
@@ -696,37 +684,6 @@ body {
     padding: 2rem;
     color: var(--color-text-secondary);
     font-size: 0.9rem;
-}
-
-/* Waffle pagination */
-.waffle-pagination {
-    display: flex;
-    justify-content: center;
-    gap: 0.25rem;
-    margin-top: 1rem;
-    flex-wrap: wrap;
-}
-
-.waffle-pagination button {
-    padding: 0.4rem 0.75rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    font-family: inherit;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all var(--transition);
-}
-
-.waffle-pagination button:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-}
-
-.waffle-pagination button.active {
-    background: var(--color-primary);
-    color: white;
-    border-color: var(--color-primary);
 }
 
 /* ====== CHARTS ====== */
@@ -828,42 +785,6 @@ body {
     padding: 0.6rem 0.75rem;
     border-bottom: 1px solid var(--color-border);
     vertical-align: top;
-}
-
-.vote-link {
-    font-size: 1rem;
-    color: var(--color-primary);
-    text-decoration: none;
-}
-.vote-link:hover {
-    text-decoration: underline;
-}
-
-.vote-source-cell {
-    text-align: center;
-    width: 2.5rem;
-}
-
-.law-link {
-    font-size: 1rem;
-    color: var(--color-primary);
-    text-decoration: none;
-    margin-left: 0.25rem;
-}
-.law-link:hover {
-    text-decoration: underline;
-}
-
-.notable-law-link {
-    margin-top: 0.25rem;
-    font-size: 0.75rem;
-}
-.notable-law-link a {
-    color: var(--color-primary);
-    text-decoration: none;
-}
-.notable-law-link a:hover {
-    text-decoration: underline;
 }
 
 .votes-table tr:hover {
@@ -1265,16 +1186,6 @@ body {
     .waffle-actions .btn-share {
         flex: 1;
         justify-content: center;
-    }
-
-    .notable-card {
-        flex-direction: column;
-        align-items: center;
-    }
-
-    .notable-card-right {
-        min-width: unset;
-        width: 100%;
     }
 }
 

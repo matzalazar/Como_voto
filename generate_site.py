@@ -20,9 +20,11 @@ import os
 import re
 import sys
 import logging
+import unicodedata
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
+import time
 
 # Import ConsolidatedDB and helpers from scraper
 from scraper import ConsolidatedDB, classify_bloc, VOTE_DECODE
@@ -39,76 +41,99 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 log = logging.getLogger("processor")
+ 
 
 
 # ---------------------------------------------------------------------------
 # Common law names mapping
 # ---------------------------------------------------------------------------
 COMMON_LAW_NAMES = [
-    (['bases y puntos de partida', "ley de bases", "ley bases"], "Ley Bases"),
-    (["medidas fiscales paliativas", "paquete fiscal"], "Paquete Fiscal"),
-    (["régimen de incentivo para grandes inversiones",
-      "regimen de incentivo para grandes inversiones", "rigi"], "RIGI"),
-    (["decreto de necesidad y urgencia 70", "dnu 70"], "DNU 70/2023"),
-    (["movilidad jubilatoria", "movilidad previsional"],
-     "Movilidad Jubilatoria"),
-    (["financiamiento universitario"], "Financiamiento Universitario"),
-    (["privatización", "privatizacion"], "Privatizaciones"),
-    (["boleta única", "boleta unica"], "Boleta Unica de Papel"),
-    (["ficha limpia"], "Ficha Limpia"),
-    (["juicio en ausencia"], "Juicio en Ausencia"),
-    (["presupuesto general", "presupuesto de la administración",
-      "presupuesto de la administracion", "ley de presupuesto"],
-     "Presupuesto"),
-    (["código penal", "codigo penal"], "Codigo Penal"),
-    (["código procesal penal", "codigo procesal penal"],
-     "Codigo Procesal Penal"),
-    (["reforma laboral", "modernización laboral",
-      "modernizacion laboral"], "Reforma Laboral"),
-    (["ley de alquileres", "locaciones urbanas"], "Ley de Alquileres"),
-    (["impuesto a las ganancias"], "Impuesto a las Ganancias"),
-    (["bienes personales"], "Bienes Personales"),
-    (["deuda externa", "reestructuración de deuda",
-      "reestructuracion de deuda"], "Deuda Externa"),
-    (["interrupción voluntaria del embarazo",
-      "interrupcion voluntaria", "aborto"], "IVE / Aborto"),
-    (["violencia de género", "violencia de genero"],
-     "Violencia de Genero"),
-    (["emergencia alimentaria"], "Emergencia Alimentaria"),
-    (["consenso fiscal"], "Consenso Fiscal"),
-    (["paridad de género", "paridad de genero"], "Paridad de Genero"),
-    (["acceso a la información pública",
-      "acceso a la informacion publica"], "Acceso a Info. Publica"),
-    (["cannabis", "uso medicinal"], "Cannabis Medicinal"),
-    (["régimen previsional", "regimen previsional"],
-     "Regimen Previsional"),
-    (["defensa nacional"], "Defensa Nacional"),
-    (["educación sexual", "educacion sexual"], "Educacion Sexual"),
-    (["economía del conocimiento", "economia del conocimiento"],
-     "Economia del Conocimiento"),
-    (["góndolas", "gondolas"], "Ley de Gondolas"),
-    (["teletrabajo"], "Teletrabajo"),
-    (["etiquetado frontal"], "Etiquetado Frontal"),
-    (["humedales"], "Ley de Humedales"),
-    (["manejo del fuego"], "Manejo del Fuego"),
-    (["régimen electoral", "regimen electoral"], "Regimen Electoral"),
-    (["emergencia pública", "emergencia publica",
-      "declaración de emergencia", "declaracion de emergencia"],
-     "Emergencia Publica"),    # additional notable laws requested by user
-    (['régimen penal juvenil', 'penal juvenil'], "Régimen Penal Juvenil"),
-    (['glaciares'], "Glaciares"),
-    (['inocencia fiscal'], "Inocencia Fiscal"),
-    (['ciencia y tecnología', 'ciencia'], "Emergencia y Financiamiento Científico")
+        (['bases y puntos de partida', "ley de bases", "ley bases"], "Ley Bases"),
+        (["medidas fiscales paliativas", "paquete fiscal"], "Paquete Fiscal"),
+        (["régimen de incentivo para grandes inversiones",
+            "regimen de incentivo para grandes inversiones", "rigi"], "RIGI"),
+        (["decreto de necesidad y urgencia 70", "dnu 70"], "DNU 70/2023"),
+        (["movilidad jubilatoria", "movilidad previsional"],
+         "Movilidad Jubilatoria"),
+        (["financiamiento universitario"], "Financiamiento Universitario"),
+        (["privatización", "privatizacion"], "Privatizaciones"),
+        (["boleta única", "boleta unica"], "Boleta Unica de Papel"),
+        (["ficha limpia"], "Ficha Limpia"),
+        (["juicio en ausencia"], "Juicio en Ausencia"),
+        (["presupuesto general", "presupuesto de la administración",
+            "presupuesto de la administracion", "ley de presupuesto"],
+         "Presupuesto"),
+        (["código penal", "codigo penal"], "Codigo Penal"),
+        (["código procesal penal", "codigo procesal penal"],
+         "Codigo Procesal Penal"),
+        (["reforma laboral", "modernización laboral",
+            "modernizacion laboral"], "Reforma Laboral"),
+        (["ley de alquileres", "locaciones urbanas"], "Ley de Alquileres"),
+        (["impuesto a las ganancias"], "Impuesto a las Ganancias"),
+        (["bienes personales"], "Bienes Personales"),
+        (["deuda externa", "reestructuración de deuda",
+            "reestructuracion de deuda"], "Deuda Externa"),
+        (["interrupción voluntaria del embarazo",
+            "interrupcion voluntaria", "aborto"], "IVE / Aborto"),
+        (["violencia de género", "violencia de genero"],
+         "Violencia de Genero"),
+        (["emergencia alimentaria"], "Emergencia Alimentaria"),
+        (["consenso fiscal"], "Consenso Fiscal"),
+        (["paridad de género", "paridad de genero"], "Paridad de Genero"),
+        (["acceso a la información pública",
+            "acceso a la informacion publica"], "Acceso a Info. Publica"),
+        (["cannabis", "uso medicinal"], "Cannabis Medicinal"),
+        (["régimen previsional", "regimen previsional"],
+         "Regimen Previsional"),
+        (["defensa nacional"], "Defensa Nacional"),
+        (["educación sexual", "educacion sexual"], "Educacion Sexual"),
+        (["economía del conocimiento", "economia del conocimiento"],
+         "Economia del Conocimiento"),
+        (["góndolas", "gondolas"], "Ley de Gondolas"),
+        (["teletrabajo"], "Teletrabajo"),
+        (["etiquetado frontal"], "Etiquetado Frontal"),
+        (["humedales"], "Ley de Humedales"),
+        (["manejo del fuego"], "Manejo del Fuego"),
+        (["régimen electoral", "regimen electoral"], "Regimen Electoral"),
+        (["emergencia pública", "emergencia publica",
+            "declaración de emergencia", "declaracion de emergencia"],
+         "Emergencia Publica"),    # additional notable laws requested by user
+        (['régimen penal juvenil', 'penal juvenil'], "Régimen Penal Juvenil"),
+        (['glaciares'], "Glaciares"),
+        (['inocencia fiscal'], "Inocencia Fiscal"),
+        (['ciencia y tecnología', 'ciencia'], "Emergencia y Financiamiento Científico")
 ]
 
 
-def get_common_name(title: str) -> str | None:
-    t = title.lower()
-    for keywords, common_name in COMMON_LAW_NAMES:
+def COMMON_NORM(s: str) -> str:
+        return unicodedata.normalize('NFKD', (s or '')).encode('ascii', 'ignore').decode('ascii').lower()
+
+
+# Precompute normalized keyword entries for matching. Use simple
+# substring matching for multi-word / longer keywords and use a
+# word-boundary regex only for short tokens to avoid false positives.
+COMMON_LAW_ENTRIES: list[tuple[str, str]] = []
+for keywords, common_name in COMMON_LAW_NAMES:
         for kw in keywords:
-            if kw in t:
-                return common_name
-    return None
+                kw_norm = COMMON_NORM(kw)
+                COMMON_LAW_ENTRIES.append((kw_norm, common_name))
+
+
+def get_common_name(title: str) -> str | None:
+        if not title:
+                return None
+        t_norm = COMMON_NORM(title)
+        for kw_norm, common_name in COMMON_LAW_ENTRIES:
+                # Short tokens (<=4) require whole-word match to avoid
+                # accidental substring matches; longer phrases use simple
+                # substring matching which is more forgiving with punctuation.
+                if len(kw_norm) <= 4:
+                        if re.search(r"\b" + re.escape(kw_norm) + r"\b", t_norm):
+                                return common_name
+                else:
+                        if kw_norm in t_norm:
+                                return common_name
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +248,18 @@ def extract_year(date_str: str) -> int | None:
 # ---------------------------------------------------------------------------
 
 def compute_majority_vote(votes: list[dict], coalition: str) -> str:
-    coalition_votes = [v for v in votes if v.get("coalition") == coalition]
+    def _norm(s: str) -> str:
+        return unicodedata.normalize('NFKD', (s or '')).encode('ascii', 'ignore').decode('ascii').upper()
+
+    coalition_up = _norm(coalition) if coalition else coalition
+    wanted = {coalition_up} if coalition_up else set()
+    coalition_votes = []
+    for v in votes:
+        coal = v.get("coalition") or classify_bloc(v.get("bloc", ""))
+        coal_up = _norm(coal)
+        bloc_up = _norm(v.get("bloc", ""))
+        if coal_up in wanted or any(w in bloc_up for w in wanted):
+            coalition_votes.append(v)
     if not coalition_votes:
         return "N/A"
 
@@ -252,9 +288,17 @@ def compute_combined_majority(
     """Compute majority vote across multiple coalitions combined.
     Used for 2023+ opposition bloc (LLA + PRO grouped together).
     """
-    coalition_votes = [
-        v for v in votes if v.get("coalition") in coalitions
-    ]
+    def _norm(s: str) -> str:
+        return unicodedata.normalize('NFKD', (s or '')).encode('ascii', 'ignore').decode('ascii').upper()
+
+    wanted = set(_norm(c) for c in coalitions)
+    coalition_votes = []
+    for v in votes:
+        coal = v.get("coalition") or classify_bloc(v.get("bloc", ""))
+        coal_up = _norm(coal)
+        bloc_up = _norm(v.get("bloc", ""))
+        if coal_up in wanted or any(w in bloc_up for w in wanted):
+            coalition_votes.append(v)
     if not coalition_votes:
         return "N/A"
 
@@ -277,27 +321,20 @@ def compute_combined_majority(
     return max(active_counts, key=active_counts.get)
 
 
-def is_contested(year: int | None, pj_majority: str, pro_majority: str,
-                 lla_majority: str, opp_majority_2023: str) -> bool:
-    """Determine if a votación had disagreement between the two major sides.
+def is_contested(year: int | None, pj_majority: str, opp_majority: str) -> bool:
+    """Return True when a votación is contested between PJ and the
+    dynamically selected opposition majority for that year.
 
-    For 2015-2022: PJ vs PRO — contested if they voted differently.
-    For 2023-2026: PJ vs combined opposition (LLA+PRO) — contested if they
-                   voted differently.
+    Excludes cases where either side has no active majority ('N/A') or
+    only 'AUSENTE'.
     """
     if year is None:
         return False
-
-    if year <= 2022:
-        if pj_majority in ("N/A", "AUSENTE") or \
-           pro_majority in ("N/A", "AUSENTE"):
-            return False
-        return pj_majority != pro_majority
-    else:
-        if pj_majority in ("N/A", "AUSENTE") or \
-           opp_majority_2023 in ("N/A", "AUSENTE"):
-            return False
-        return pj_majority != opp_majority_2023
+    if pj_majority in ("N/A", "AUSENTE"):
+        return False
+    if opp_majority in ("N/A", "AUSENTE"):
+        return False
+    return pj_majority != opp_majority
 
 
 def normalize_vote(vote_str: str) -> str:
@@ -419,23 +456,45 @@ def build_legislator_data(
             or group_data.get("title", title)
         )
 
-        pj_majority = compute_majority_vote(
-            votacion.get("votes", []), "PJ"
-        )
-        pro_majority = compute_majority_vote(
-            votacion.get("votes", []), "PRO"
-        )
-        lla_majority = compute_majority_vote(
-            votacion.get("votes", []), "LLA"
-        )
-        opp_majority_2023 = compute_combined_majority(
-            votacion.get("votes", []), ["LLA", "PRO"]
-        )
+        # Coalition definitions (case-insensitive matching)
+        PJ_COALITIONS = [
+            "PJ", "JUSTICIALISTAS", "FRENTE PARA LA VICTORIA",
+            "FRENTE DE TODOS", "UNION POR LA PATRIA", "UXP", "Unidad Ciudadana", "Frente Justicialista"
+        ]
+        UCR_COALITIONS = [
+            "UCR", "UNION CIVICA RADICAL", "UNIÓN CÍVICA RADICAL", "RADICAL",
+            "CC", "ACyS", "UDESO", "FPCyS", "Frente Progresista Cívico y Social",
+            "Unión para el Desarrollo Social", "Acuerdo Cívico y Social",
+            "Concertación para Una Nación Avanzada", "UNA", "ARI",
+            "Argentinos por una República de Iguales", "Coalición Cívica",
+            "Coalición Cívica ARI"
+        ]
+        JXC_COALITIONS = ["UCR", "Unión Cívica Radical", "Union Civica Radical","JxC", "Juntos por el Cambio", "CC", "Coalición Cívica" "Cambiemos", "PRO", "Propuesta Republicana", "Frente Pro", "Frente Cambiemos", "Frente Juntos por el Cambio", "ARI", "Coalición Cívica ARI"]
+        LLA_PRO_COALITIONS = ["LLA", "PRO", "Juntos por el Cambio", "Alianza La Libertad Avanza"]
 
-        contested = is_contested(
-            year, pj_majority, pro_majority,
-            lla_majority, opp_majority_2023
-        )
+        # PJ majority across the PJ coalition variants
+        pj_majority = compute_combined_majority(votacion.get("votes", []), PJ_COALITIONS)
+
+        combined_ucr = compute_combined_majority(votacion.get("votes", []), UCR_COALITIONS)
+        combined_jxc = compute_combined_majority(votacion.get("votes", []), JXC_COALITIONS)
+        combined_lla_pro = compute_combined_majority(votacion.get("votes", []), LLA_PRO_COALITIONS)
+
+        # choose opposition majority based on year
+        if year is None:
+            opp_majority = "N/A"
+        elif year <= 2014:
+            opp_majority = combined_ucr
+        elif year <= 2023:
+            opp_majority = combined_jxc
+        else:
+            opp_majority = combined_lla_pro
+
+        # Exclude procedural votes
+        title_low = title.lower() if title else ""
+        if "moción de orden" in title_low or "mocion de orden" in title_low or "pedido de licencia" in title_low:
+            contested = False
+        else:
+            contested = is_contested(year, pj_majority, opp_majority)
 
         for vote_record in votacion.get("votes", []):
             name = vote_record.get("name", "").strip()
@@ -460,6 +519,7 @@ def build_legislator_data(
                         "PJ": {"total": 0, "aligned": 0},
                         "PRO": {"total": 0, "aligned": 0},
                         "LLA": {"total": 0, "aligned": 0},
+                        "UCR": {"total": 0, "aligned": 0},
                     },
                     "yearly_alignment": {},
                 }
@@ -507,8 +567,10 @@ def build_legislator_data(
                 "yr": year,
                 "v": norm_vote,
                 "pj": pj_majority,
-                "pro": pro_majority,
-                "lla": lla_majority,
+                # store combined coalition majorities for frontend compatibility
+                "pro": combined_jxc,
+                "lla": combined_lla_pro,
+                "ucr": combined_ucr,
                 "tp": vtype,
                 "gk": group_key,
                 "ln": law_display_name[:120] if law_display_name else "",
@@ -535,25 +597,64 @@ def build_legislator_data(
                 if yr_key not in leg["yearly_alignment"]:
                     leg["yearly_alignment"][yr_key] = {
                         "PJ": {"total": 0, "aligned": 0},
+                        # Track multiple opposition groups for reporting
                         "PRO": {"total": 0, "aligned": 0},
                         "LLA": {"total": 0, "aligned": 0},
+                        "UCR": {"total": 0, "aligned": 0},
+                        "JxC": {"total": 0, "aligned": 0},
                     }
 
-                if contested and norm_vote not in \
-                        ("AUSENTE", "PRESIDENTE"):
-                    for coalition, majority in [
-                        ("PJ", pj_majority),
-                        ("PRO", pro_majority),
-                        ("LLA", lla_majority),
-                    ]:
-                        if majority not in ("N/A", "AUSENTE"):
-                            leg["alignment"][coalition]["total"] += 1
-                            leg["yearly_alignment"][yr_key][
-                                coalition]["total"] += 1
-                            if norm_vote == majority:
-                                leg["alignment"][coalition]["aligned"] += 1
-                                leg["yearly_alignment"][yr_key][
-                                    coalition]["aligned"] += 1
+                if contested and norm_vote not in ("AUSENTE", "PRESIDENTE"):
+                    # PJ alignment (combined PJ coalition)
+                    if pj_majority not in ("N/A", "AUSENTE"):
+                        leg["alignment"]["PJ"]["total"] += 1
+                        leg["yearly_alignment"][yr_key]["PJ"]["total"] += 1
+                        if norm_vote == pj_majority:
+                            leg["alignment"]["PJ"]["aligned"] += 1
+                            leg["yearly_alignment"][yr_key]["PJ"]["aligned"] += 1
+
+                    # UCR combined majority
+                    if combined_ucr not in ("N/A", "AUSENTE"):
+                        leg["yearly_alignment"][yr_key]["UCR"]["total"] += 1
+                        if norm_vote == combined_ucr:
+                            leg["yearly_alignment"][yr_key]["UCR"]["aligned"] += 1
+                        # increment global UCR totals only for years where UCR is the
+                        # designated opposition (<= 2014)
+                        if year is not None and year <= 2014:
+                            leg["alignment"]["UCR"]["total"] += 1
+                            if norm_vote == combined_ucr:
+                                leg["alignment"]["UCR"]["aligned"] += 1
+
+                    # JxC combined majority
+                    if combined_jxc not in ("N/A", "AUSENTE"):
+                        leg["yearly_alignment"][yr_key]["JxC"]["total"] += 1
+                        if norm_vote == combined_jxc:
+                            leg["yearly_alignment"][yr_key]["JxC"]["aligned"] += 1
+
+                    # JxC / PRO combined majority (store under PRO for compatibility)
+                    # Only count these votes toward overall PRO alignment for years
+                    # where JxC/PRO was the designated opposition (2015-2023).
+                    if combined_jxc not in ("N/A", "AUSENTE"):
+                        leg["yearly_alignment"][yr_key]["PRO"]["total"] += 1
+                        if norm_vote == combined_jxc:
+                            leg["yearly_alignment"][yr_key]["PRO"]["aligned"] += 1
+                        # increment global PRO totals only for 2015-2023
+                        if year is not None and 2015 <= year <= 2023:
+                            leg["alignment"]["PRO"]["total"] += 1
+                            if norm_vote == combined_jxc:
+                                leg["alignment"]["PRO"]["aligned"] += 1
+
+                    # LLA + PRO combined majority (tracked under LLA field too)
+                    # Only count these votes toward overall LLA alignment for years
+                    # where LLA was the designated opposition (2024+).
+                    if combined_lla_pro not in ("N/A", "AUSENTE"):
+                        leg["yearly_alignment"][yr_key]["LLA"]["total"] += 1
+                        if norm_vote == combined_lla_pro:
+                            leg["yearly_alignment"][yr_key]["LLA"]["aligned"] += 1
+                        if year is not None and year >= 2024:
+                            leg["alignment"]["LLA"]["total"] += 1
+                            if norm_vote == combined_lla_pro:
+                                leg["alignment"]["LLA"]["aligned"] += 1
 
     return legislators
 
@@ -612,16 +713,43 @@ def generate_site_data(legislators: dict, law_groups: dict):
     leg_details_dir = DOCS_DATA_DIR / "legislators"
     leg_details_dir.mkdir(parents=True, exist_ok=True)
 
+    total_legs = len(legislators)
+    count = 0
+    start_time = time.time()
+
     for key, leg in legislators.items():
         yearly_alignment_pct = {}
         for yr, data in sorted(leg["yearly_alignment"].items()):
             yearly_alignment_pct[yr] = {}
-            for coalition in ["PJ", "PRO", "LLA"]:
-                total = data[coalition]["total"]
-                aligned = data[coalition]["aligned"]
-                yearly_alignment_pct[yr][coalition] = (
-                    round(aligned / total * 100, 1) if total > 0 else None
-                )
+            try:
+                yint = int(yr)
+            except Exception:
+                yint = None
+            for coalition in ["PJ", "UCR", "JxC", "PRO", "LLA"]:
+                total = data.get(coalition, {}).get("total", 0)
+                aligned = data.get(coalition, {}).get("aligned", 0)
+                pct = None
+                # Apply year masks for opposition coalitions
+                if coalition == "UCR":
+                    if yint is not None and yint <= 2014:
+                        pct = round(aligned / total * 100, 1) if total > 5 else None
+                    else:
+                        pct = None
+                elif coalition in ("JxC", "PRO"):
+                    if yint is not None and 2015 <= yint <= 2023:
+                        pct = round(aligned / total * 100, 1) if total > 5 else None
+                    else:
+                        pct = None
+                elif coalition == "LLA":
+                    if yint is not None and yint >= 2024:
+                        pct = round(aligned / total * 100, 1) if total > 5 else None
+                    else:
+                        pct = None
+                else:
+                    # PJ: always compute when enough votes
+                    pct = round(aligned / total * 100, 1) if total > 5 else None
+
+                yearly_alignment_pct[yr][coalition] = pct
 
         # Build waffle groups — merge by common_name so that e.g. all
         # "Ley Bases" O.D. numbers/dates become a single law entry
@@ -706,7 +834,17 @@ def generate_site_data(legislators: dict, law_groups: dict):
         }
 
         safe_name = re.sub(r"[^A-Z0-9_]", "_", key)[:80]
+        # time the JSON write to detect slow IO
+        write_start = time.time()
         save_json(leg_details_dir / f"{safe_name}.json", detail)
+        write_elapsed = time.time() - write_start
+        count += 1
+        # log progress periodically to help diagnose stalls
+        if count % 100 == 0 or count == total_legs:
+            total_elapsed = time.time() - start_time
+            log.info(
+                f"Wrote {count}/{total_legs} legislator files; last_write={write_elapsed:.2f}s; total_elapsed={total_elapsed:.2f}s"
+            )
 
     log.info(f"Generated {len(legislators)} legislator detail files")
 
@@ -770,9 +908,28 @@ def generate_site_data(legislators: dict, law_groups: dict):
 
 def save_json(path: Path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=None,
-                  separators=(",", ":"))
+    tmp_path = path.with_suffix('.tmp')
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=None,
+                      separators=(",", ":"))
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except Exception:
+                # fsync may not be available on all platforms; ignore if it fails
+                pass
+        # Atomic replace to avoid truncated files if process is interrupted
+        os.replace(tmp_path, path)
+    except Exception as e:
+        log.exception(f"Failed to write JSON to {path}: {e}")
+        # Attempt best-effort write directly
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=None,
+                          separators=(",", ":"))
+        except Exception:
+            log.exception(f"Fallback write also failed for {path}")
 
 
 def main():

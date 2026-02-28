@@ -4,18 +4,15 @@ information regarding that votacion, probably name and date, as well as a clicka
 opens the url to that particular votacion in the diputados website.
 
 Also, we need to add an image of the same picture which is at the top of the webpage once we select a politico,
-to the "Leyes destacadas" section, right beside the name.
-
-Then we need to look into the percentage affinity calculation. For each year, for every law that 
-was voted differently by the two largest blocks for that year, we need to calculate the percentage of votaciones where 
-the vote of the politician coincides with the majority vote of the parties. We need to use (PJ, Justicialistas, Union Por la Patria, 	Frente para la Victoria, Frente de Todos) for every year,
-and up to 2023, compare to (JxC, Cambiemos, PRO, UCR). Starting 2024, we use PJ and similar versus LLA and PRO.
+to the "Leyes destacadas" section, right beside the politician name.
 
 Also, there is a problem when choosing a politician, and then going back to the search and entering a different politician page again. 
 Data sometimes becomes corrupt. Should we do any clean up when leaving a politician page to go back to the search?
 
-Also, for coalitions for which to calculate affinity, we should use one coalition PJ (PJ, Justicialistas, Frente para la Victoria, Frente de Todos, Union por la Patria, UxP), and compare to the JxC coalition (UCR, JxC, Cambiemos, PRO) for all years up to 2023.
+Also, for coalitions for which to calculate affinity, we should use one coalition PJ (PJ, Justicialistas, Frente para la Victoria, Frente de Todos, Union por la Patria, UxP). That coalition should compare to  and compare to UCR (UCR, CC, ACyS, UDESO, FPCyS) up to 2014 inclusive. Then compare to the JxC coalition (UCR, JxC, CC, Cambiemos, PRO) for 2015-2023.
 Starting from 2024, we need to compare PJ to the LLA (La Libertad Avanza, PRO coalition).
 For each year, we need to calculate the percentage of times that the politico in question votes the same way as the large coalitions, but only when they dont agree. Only calculate for a year if that happens with more than 5 votes, otherwise leave blank.
 Only calculate this percentage for votaciones which do not include "Moción de Orden" or "Pedido de Licencia" text in the name.
-We also need to handle Ausencias more smartly. 
+We also need to handle Ausencias more smartly. Calculations of affinity should occur only for the following time periods. PJ: all. UCR: up to 2014. JxC 2015-2023. LLA 2024 and onwards.
+Also, we need to make sure the calculation of the overall affinity of a politician to PJ and the three majority opposition coalitions needs to be calculated as the weighted mean of the yearly calculations for each.
+We also need to use matching labels for all four coalitions in the top of the politician affinities and the plots.
