@@ -48,7 +48,8 @@ REQUEST_DELAY = 0.3
 HCDN_MAX_ID = 6500
 
 # Senado periods to scrape
-SENADO_YEARS = list(range(2015, datetime.now().year + 1))
+# Available on website: 2005 onwards (earlier years have no digital records)
+SENADO_YEARS = list(range(2005, datetime.now().year + 1))
 
 # Vote code mapping (compact integer codes for storage)
 VOTE_ENCODE = {
@@ -525,41 +526,41 @@ def scrape_diputados():
 # ===========================================================================
 
 def scrape_senado_actas_list(year: int, existing_ids: set[str]) -> list[dict]:
-    """Scrape the list of actas from the Senado for a given year."""
+    """Scrape the list of actas from the Senado for a given year.
+    
+    The Senado site requires a POST request with the form data
+    busqueda_actas[anio]=YEAR to filter by period.
+    """
     log.info(f"=== Scraping Senado actas list for {year} ===")
 
     url = f"{SENADO_BASE}/votaciones/actas"
     actas = []
 
-    page = 1
-    while True:
-        resp = fetch(f"{url}?periodo={year}&page={page}")
-        if resp is None:
-            break
+    # The site uses a form POST to filter by year, not URL parameters
+    form_data = {"busqueda_actas[anio]": str(year)}
+    
+    time.sleep(REQUEST_DELAY)
+    try:
+        resp = SESSION.post(url, data=form_data, timeout=30)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        log.warning(f"Failed to fetch Senado actas for {year}: {e}")
+        return []
 
-        soup = BeautifulSoup(resp.text, "lxml")
-        detail_links = soup.find_all(
-            "a", href=re.compile(r"/votaciones/detalleActa/(\d+)")
-        )
+    soup = BeautifulSoup(resp.text, "lxml")
+    detail_links = soup.find_all(
+        "a", href=re.compile(r"/votaciones/detalleActa/(\d+)")
+    )
 
-        if not detail_links:
-            break
-
-        for link in detail_links:
-            match = re.search(r"/votaciones/detalleActa/(\d+)", link["href"])
-            if match:
-                acta_id = match.group(1)
-                if acta_id not in existing_ids:
-                    actas.append({
-                        "id": acta_id,
-                        "text": link.get_text(strip=True),
-                    })
-
-        next_link = soup.find("a", string=re.compile("Siguiente"))
-        if next_link and "href" in next_link.attrs:
-            page += 1
-        else:
-            break
+    for link in detail_links:
+        match = re.search(r"/votaciones/detalleActa/(\d+)", link["href"])
+        if match:
+            acta_id = match.group(1)
+            if acta_id not in existing_ids:
+                actas.append({
+                    "id": acta_id,
+                    "text": link.get_text(strip=True),
+                })
 
     log.info(f"Found {len(actas)} new Senado actas for {year}")
     return actas

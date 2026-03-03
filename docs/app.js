@@ -434,17 +434,17 @@ function renderWaffle() {
 
     let laws = currentDetail.laws || [];
 
-    // Show only notable (common_name) laws by default; show all if user is filtering
-    if (!lawFilter) {
-        laws = laws.filter((l) => l.notable === true);
-    }
+    // Always filter to notable laws first
+    laws = laws.filter((l) => l.notable === true);
 
-    // Apply filters
-    if (yearFilter) {
-        laws = laws.filter((l) => String(l.year) === yearFilter);
-    }
+    // Apply text filter
     if (lawFilter) {
         laws = laws.filter((l) => l.name.toLowerCase().includes(lawFilter));
+    }
+
+    // Apply year filter
+    if (yearFilter) {
+        laws = laws.filter((l) => String(l.year) === yearFilter);
     }
 
     const body = document.getElementById("waffle-card-body");
@@ -1115,6 +1115,12 @@ function parseArgDate(dateStr) {
     if (btnCopyNotable) btnCopyNotable.addEventListener("click", () => copyCardImage("notable-card", "btn-copy-notable"));
     const btnShareNotable = document.getElementById("btn-share-notable-tw");
     if (btnShareNotable) btnShareNotable.addEventListener("click", shareTwitterNotable);
+
+    // Wire waffle filters
+    const waffleLawFilter = document.getElementById("waffle-law-filter");
+    if (waffleLawFilter) waffleLawFilter.addEventListener("input", () => { currentWafflePage = 1; renderWaffle(); });
+    const waffleYearFilter = document.getElementById("waffle-year-filter");
+    if (waffleYearFilter) waffleYearFilter.addEventListener("change", () => { currentWafflePage = 1; renderWaffle(); });
 
     // Populate initial small search result if desired (empty/hidden)
     hideSearchResults();

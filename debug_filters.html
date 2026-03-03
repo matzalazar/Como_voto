@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Debug Waffle Filters</title>
+</head>
+<body>
+    <h1>Debug Waffle Filters</h1>
+    <p>Open the console to see debug output</p>
+    
+    <script>
+        // Simulate the app.js initialization sequence
+        console.log("=== Debug: Checking element existence ===");
+        
+        // Check if elements exist immediately
+        console.log("waffle-law-filter exists:", document.getElementById("waffle-law-filter"));
+        console.log("waffle-year-filter exists:", document.getElementById("waffle-year-filter"));
+        
+        // Wait for DOMContentLoaded
+        document.addEventListener("DOMContentLoaded", () => {
+            console.log("=== DOMContentLoaded ===");
+            console.log("waffle-law-filter exists:", document.getElementById("waffle-law-filter"));
+            console.log("waffle-year-filter exists:", document.getElementById("waffle-year-filter"));
+        });
+    </script>
+    
+    <!-- Simulate the waffle section structure -->
+    <div class="waffle-section" id="waffle-section">
+        <div class="waffle-toolbar">
+            <h3>Leyes destacadas</h3>
+            <div class="waffle-controls">
+                <div class="waffle-filter-group">
+                    <label for="waffle-year-filter">Año</label>
+                    <select id="waffle-year-filter">
+                        <option value="">Todos</option>
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                    </select>
+                </div>
+                <div class="waffle-filter-group">
+                    <label for="waffle-law-filter">Ley</label>
+                    <input type="text" id="waffle-law-filter" placeholder="Filtrar por nombre de ley..." autocomplete="off">
+                </div>
+            </div>
+        </div>
+        <div class="waffle-card" id="waffle-card">
+            <div class="waffle-card-body" id="waffle-card-body">
+                Test content
+            </div>
+        </div>
+        <div class="waffle-pagination" id="waffle-pagination"></div>
+    </div>
+    
+    <script>
+        // Test attaching listeners after DOM is ready
+        document.addEventListener("DOMContentLoaded", () => {
+            const waffleLawFilter = document.getElementById("waffle-law-filter");
+            const waffleYearFilter = document.getElementById("waffle-year-filter");
+            
+            console.log("=== Attaching listeners ===");
+            console.log("waffleLawFilter:", waffleLawFilter);
+            console.log("waffleYearFilter:", waffleYearFilter);
+            
+            if (waffleLawFilter) {
+                waffleLawFilter.addEventListener("input", () => {
+                    console.log("LAW FILTER INPUT EVENT FIRED! Value:", waffleLawFilter.value);
+                });
+                console.log("Law filter listener attached");
+            }
+            
+            if (waffleYearFilter) {
+                waffleYearFilter.addEventListener("change", () => {
+                    console.log("YEAR FILTER CHANGE EVENT FIRED! Value:", waffleYearFilter.value);
+                });
+                console.log("Year filter listener attached");
+            }
+        });
+    </script>
+</body>
+</html>
