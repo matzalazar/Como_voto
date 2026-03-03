@@ -3,8 +3,7 @@ Also, we need to add funcitonality so that when a checkbox in that section is cl
 information regarding that votacion, probably name and date, as well as a clickable link which
 opens the url to that particular votacion in the diputados website.
 
-Also, we need to add an image of the same picture which is at the top of the webpage once we select a politico,
-to the "Leyes destacadas" section, right beside the politician name.
+Fix the text filter in the "Leyes destacadas" section.
 
 Also, there is a problem when choosing a politician, and then going back to the search and entering a different politician page again. 
 Data sometimes becomes corrupt. Should we do any clean up when leaving a politician page to go back to the search?
@@ -16,3 +15,5 @@ Only calculate this percentage for votaciones which do not include "Moción de O
 We also need to handle Ausencias more smartly. Calculations of affinity should occur only for the following time periods. PJ: all. UCR: up to 2014. JxC 2015-2023. LLA 2024 and onwards.
 Also, we need to make sure the calculation of the overall affinity of a politician to PJ and the three majority opposition coalitions needs to be calculated as the weighted mean of the yearly calculations for each.
 We also need to use matching labels for all four coalitions in the top of the politician affinities and the plots.
+
+Lets fix the scraper.py script for Senado. In https://www.senado.gob.ar/votaciones/actas#, we need to change the Período dropdown menu to the year we want to get the votaciones from, and then downlaod for that year. Then change the Período again, download votaciones and so forth. 
