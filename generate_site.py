@@ -43,6 +43,168 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 log = logging.getLogger("processor")
+
+
+# ---------------------------------------------------------------------------
+# Party classification for law-search breakdown
+# ---------------------------------------------------------------------------
+# Unlike classify_bloc() (PJ/PRO/LLA/OTHER coalitions used for alignment
+# tracking), this classifies into the five actual major parties by their
+# real bloc name at the time of voting.
+
+_PJ_PARTY_KW = [
+    "justicialista", "frente de todos", "frente para la victoria",
+    "unión por la patria", "union por la patria",
+    "frente renovador", "peronismo", "peronista",
+    "frente cívico por santiago", "frente civico por santiago",
+    "movimiento popular neuquino", "pj ", "pj frente",
+    "unidad ciudadana", "frente nacional y popular",
+]
+_UCR_PARTY_KW = [
+    "ucr", "unión cívica radical", "union civica radical",
+    "radical", "evolución radical", "evolucion radical",
+    "democracia para siempre",
+]
+_PRO_PARTY_KW = [
+    "propuesta republicana", "union pro", "unión pro",
+    "frente pro", "cambiemos", "juntos por el cambio",
+]
+_LLA_PARTY_KW = ["la libertad avanza", "libertad avanza"]
+_CC_PARTY_KW = ["coalición cívica", "coalicion civica", "a.r.i"]
+
+_PRO_WORD_RE = re.compile(r"\bpro\b")
+
+# Regex helpers for extracting section labels from votación titles
+# Senado reference suffixes: use known code prefixes (PE, CD, JGM, S)
+# to avoid eating roman numerals concatenated before them
+_REF_SUFFIX_RE = re.compile(
+    r'\.?(?:PE|CD|JGM|S)-\d+/\d+(?:-[A-Z]+)?[,.]?\s*O\.?\s*D\.?\s*\d+/\d+[,.]?\s*$',
+    re.IGNORECASE,
+)
+_OD_SUFFIX_RE = re.compile(r'[.,]?\s*O\.?\s*D\.?\s*\d+/\d+[,.]?\s*$', re.IGNORECASE)
+_OD_PREFIX_RE = re.compile(
+    r'^(?:VOTACI[OÓ]N:?\s*)?(?:O\.?\s*D\.?\s*\d+\s*[-–—]\s*)?',
+    re.IGNORECASE,
+)
+_EXP_PREFIX_RE = re.compile(
+    r'^(?:EXP(?:EDIENTE)?\.?\s*\S+\s*[-–—]\s*'
+    r'(?:O\.?\s*D\.?\s*\d+\s*[-–—]\s*)?)?',
+    re.IGNORECASE,
+)
+_DICT_RE = re.compile(r'\bDICT\.\s*DE\s*(?:MAY|MIN)\.?\s*', re.IGNORECASE)
+_EN_GRAL_RE = re.compile(
+    r'(?:VOT\.?\s*)?EN\s+G(?:ENERAL|RAL)\.?', re.IGNORECASE
+)
+_TITULO_RE = re.compile(r'T[IÍ]TULO\s+([IVXLCDM]+|\d+)', re.IGNORECASE)
+_CAPITULO_RE = re.compile(
+    r'CAP[IÍ]?(?:TULO)?[.\s]\s*([IVXLCDM]+|\d+)', re.IGNORECASE
+)
+_ARTICULO_RE = re.compile(
+    r'ARTS?[IÍ]?(?:CULOS?)?[.\s°º]\s*(\d+(?:\s*[°º])?)'
+    r'(?:\s*(?:AL?|Y|,)\s*(\d+(?:\s*[°º])?))?',
+    re.IGNORECASE,
+)
+_INCISO_RE = re.compile(
+    r'INCISOS?\s+([A-Z](?:\s*(?:AL|Y|,)\s*[A-Z])*)', re.IGNORECASE
+)
+
+
+def _clean_votacion_title(title: str) -> str:
+    """Strip noise from a votación title for section extraction."""
+    s = title.strip()
+    # Strip Senado reference suffixes (PE-159/25-PL,O.D. 699/2025)
+    s = _REF_SUFFIX_RE.sub('', s)
+    # Strip standalone O.D. NNN/NNNN at end
+    s = _OD_SUFFIX_RE.sub('', s)
+    # Strip Diputados O.D. N - prefix
+    s = _OD_PREFIX_RE.sub('', s)
+    # Strip Exp. / Expediente prefix
+    s = _EXP_PREFIX_RE.sub('', s)
+    # Strip 'Orden del Día NNN -' prefix
+    s = re.sub(r'^Orden\s+del\s+D[ií]a\s+\d+\s*[-–—.]\s*',
+               '', s, flags=re.IGNORECASE)
+    # Strip DICT. DE MAY.
+    s = _DICT_RE.sub('', s)
+    return s.strip(' .,')
+
+
+def extract_section_label(title: str, vtype: str = "") -> str:
+    """Extract a descriptive section label from a votación title.
+
+    Returns labels like 'En General', 'Título I', 'Título V, Cap. II,
+    Arts. 87 a 91', etc.  Falls back to *vtype* or empty string.
+    """
+    cleaned = _clean_votacion_title(title)
+
+    # En General
+    if _EN_GRAL_RE.search(cleaned) or 'EN GENERAL' in vtype.upper():
+        return 'En General'
+
+    parts: list[str] = []
+    for m in _TITULO_RE.finditer(cleaned):
+        parts.append(f'Título {m.group(1)}')
+    for m in _CAPITULO_RE.finditer(cleaned):
+        parts.append(f'Cap. {m.group(1)}')
+    for m in _ARTICULO_RE.finditer(cleaned):
+        n1 = m.group(1).replace('°', '').replace('º', '').strip()
+        if m.group(2):
+            n2 = m.group(2).replace('°', '').replace('º', '').strip()
+            parts.append(f'Arts. {n1} a {n2}')
+        else:
+            parts.append(f'Art. {n1}')
+    for m in _INCISO_RE.finditer(cleaned):
+        parts.append(f'Inc. {m.group(1)}')
+
+    if parts:
+        # Deduplicate while preserving order
+        seen: set[str] = set()
+        unique: list[str] = []
+        for p in parts:
+            if p not in seen:
+                seen.add(p)
+                unique.append(p)
+        return ', '.join(unique)
+
+    # Fallback: detect 'en particular' in title text
+    if re.search(r'en\s+particular', cleaned, re.IGNORECASE):
+        return 'En Particular'
+
+    # Fallback to vtype (normalise case)
+    vtype_clean = vtype.strip()
+    if vtype_clean:
+        vu = vtype_clean.upper()
+        if 'EN PARTICULAR' in vu:
+            return 'En Particular'
+        if 'EN GENERAL' in vu:
+            return 'En General'
+        return vtype_clean
+    return ''
+
+
+def classify_bloc_party(bloc_name: str) -> str:
+    """Classify a bloc name into one of five real parties or OTHER.
+
+    Returns one of: PJ, UCR, PRO, LLA, CC, OTHER.
+    """
+    name = bloc_name.lower().strip()
+    for kw in _PJ_PARTY_KW:
+        if kw in name:
+            return "PJ"
+    for kw in _UCR_PARTY_KW:
+        if kw in name:
+            return "UCR"
+    if _PRO_WORD_RE.search(name):
+        return "PRO"
+    for kw in _PRO_PARTY_KW:
+        if kw in name:
+            return "PRO"
+    for kw in _LLA_PARTY_KW:
+        if kw in name:
+            return "LLA"
+    for kw in _CC_PARTY_KW:
+        if kw in name:
+            return "CC"
+    return "OTHER"
  
 
 
@@ -785,6 +947,204 @@ def build_legislator_data(
     return legislators
 
 
+_PARTY_KEYS = ("pj", "ucr", "pro", "lla", "cc", "oth")
+
+
+def build_law_detail_data(law_groups: dict) -> tuple[list[dict], dict[int, dict]]:
+    """Build per-law, per-party vote breakdown for the law-search feature.
+
+    Returns a tuple of:
+      - list of law entries for laws_detail.json (tallies only, no names)
+      - votes_by_year: {year: {"n": [name_table], "v": {vi: {pk: [[idx,...],...]}}}}
+        One entry per year, each with a local name table for small file size.
+
+    Each law entry contains display name, year, chamber and, for every
+    votación in the group, compact vote tallies broken down by the five
+    major parties (PJ / UCR / PRO / LLA / CC) plus OTHER.
+    """
+    laws: list[dict] = []
+    # Collect all voter name lists keyed by a running votación index.
+    # Using a sequential integer keeps the JSON keys short.
+    all_vote_names: dict[int, dict[str, list[list[str]]]] = {}
+    name_set: set[str] = set()
+    votacion_counter = 0
+
+    for gk, group in law_groups.items():
+        votaciones_raw = group.get("votaciones", [])
+        if not votaciones_raw:
+            continue
+
+        display_name = group.get("common_name") or group.get("title", "")
+        if not display_name or len(display_name.strip()) < 3:
+            continue
+
+        # Determine year from first votación with a date
+        year: int | None = None
+        chamber = group.get("chamber", "")
+        for v in votaciones_raw:
+            y = extract_year(v.get("date", ""))
+            if y:
+                year = y
+                break
+            if not chamber:
+                chamber = v.get("chamber", "")
+
+        vs_out: list[dict] = []
+        for v in votaciones_raw:
+            votes_list = v.get("votes", [])
+            if not votes_list:
+                continue
+
+            # Tally votes per real party (not coalition)
+            tallies: dict[str, list[int]] = {
+                "pj":  [0, 0, 0, 0],   # [afirm, neg, abst, aus]
+                "ucr": [0, 0, 0, 0],
+                "pro": [0, 0, 0, 0],
+                "lla": [0, 0, 0, 0],
+                "cc":  [0, 0, 0, 0],
+                "oth": [0, 0, 0, 0],
+            }
+            total = [0, 0, 0, 0]
+
+            VOTE_IDX = {
+                "AFIRMATIVO": 0,
+                "NEGATIVO": 1,
+                "ABSTENCION": 2,
+                "AUSENTE": 3,
+            }
+
+            # Per-legislator names for voter drill-down
+            names: dict[str, list[list[str]]] = {
+                pk: [[], [], [], []] for pk in _PARTY_KEYS
+            }
+
+            for vr in votes_list:
+                vote_str = normalize_vote(vr.get("vote", ""))
+                idx = VOTE_IDX.get(vote_str)
+                if idx is None:
+                    continue  # skip PRESIDENTE and unknowns
+
+                party = classify_bloc_party(vr.get("bloc", ""))
+                party_key = party.lower() if party != "OTHER" else "oth"
+
+                tallies[party_key][idx] += 1
+                total[idx] += 1
+
+                leg_name = vr.get("name", "").strip()
+                if leg_name:
+                    names[party_key][idx].append(leg_name)
+                    name_set.add(leg_name)
+
+            # Skip votaciones with zero relevant votes
+            if sum(total) == 0:
+                continue
+
+            vi = votacion_counter
+            votacion_counter += 1
+            all_vote_names[vi] = names
+
+            # Determine vote type label
+            title_str = v.get("title", "")
+            vtype = v.get("type", "")
+            tp_label = extract_section_label(title_str, vtype)
+
+            entry: dict = {
+                "t": title_str[:200],
+                "tp": tp_label,
+                "d": clean_date(v.get("date", "")),
+                "r": v.get("result", ""),
+                "vi": vi,
+                "tot": total,
+                "pj":  tallies["pj"],
+                "ucr": tallies["ucr"],
+                "pro": tallies["pro"],
+                "lla": tallies["lla"],
+                "cc":  tallies["cc"],
+                "oth": tallies["oth"],
+            }
+
+            vid = v.get("id")
+            if vid:
+                entry["id"] = vid
+            url = v.get("url", "")
+            if url:
+                entry["url"] = url
+
+            vs_out.append(entry)
+
+        if not vs_out:
+            continue
+
+        law_entry: dict = {
+            "n": (display_name[:120]).strip(),
+            "y": year,
+            "ch": chamber,
+            "vs": vs_out,
+        }
+        if group.get("common_name"):
+            law_entry["cn"] = group["common_name"]
+
+        laws.append(law_entry)
+
+    # Sort: notable (common_name) first, then by year desc, then by name
+    laws.sort(key=lambda x: (
+        0 if x.get("cn") else 1,
+        -(x.get("y") or 0),
+        x.get("n", ""),
+    ))
+
+    # Build per-year votes indices.  Each year file gets its own compact
+    # name table so files stay small (10-50 KB each instead of one 3.8 MB blob).
+
+    # Map vi -> year so we can bucket votaciones.
+    vi_to_year: dict[int, int] = {}
+    for law in laws:
+        y = law.get("y") or 0
+        for v in law.get("vs", []):
+            vi = v.get("vi")
+            if vi is not None:
+                vi_to_year[vi] = y
+
+    # Group vi keys by year
+    from collections import defaultdict
+    year_vis: dict[int, list[int]] = defaultdict(list)
+    for vi, y in vi_to_year.items():
+        year_vis[y].append(vi)
+
+    # Build one compact file per year with a local name table
+    votes_by_year: dict[int, dict] = {}
+    for y, vis in year_vis.items():
+        # Collect all names used this year
+        year_name_set: set[str] = set()
+        for vi in vis:
+            pn = all_vote_names.get(vi, {})
+            for pk in _PARTY_KEYS:
+                for vote_i in range(4):
+                    for nm in pn.get(pk, [[], [], [], []])[vote_i]:
+                        year_name_set.add(nm)
+
+        year_name_list = sorted(year_name_set)
+        local_idx = {n: i for i, n in enumerate(year_name_list)}
+
+        compact_votes: dict[str, dict] = {}
+        for vi in vis:
+            pn = all_vote_names.get(vi, {})
+            compact: dict[str, list[list[int]]] = {}
+            for pk in _PARTY_KEYS:
+                arrs: list[list[int]] = [[], [], [], []]
+                for vote_i in range(4):
+                    for nm in pn.get(pk, [[], [], [], []])[vote_i]:
+                        arrs[vote_i].append(local_idx[nm])
+                if any(arrs[i] for i in range(4)):
+                    compact[pk] = arrs
+            if compact:
+                compact_votes[str(vi)] = compact
+
+        votes_by_year[y] = {"n": year_name_list, "v": compact_votes}
+
+    return laws, votes_by_year
+
+
 def generate_site_data(legislators: dict, law_groups: dict):
     DOCS_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -994,6 +1354,21 @@ def generate_site_data(legislators: dict, law_groups: dict):
 
     save_json(DOCS_DATA_DIR / "votaciones.json", votaciones_summary)
     log.info("Generated votaciones summary")
+
+    # 3b. Law detail data (per-coalition vote breakdowns for law search)
+    laws_detail, votes_by_year = build_law_detail_data(law_groups)
+    save_json(DOCS_DATA_DIR / "laws_detail.json", laws_detail)
+    log.info(f"Generated laws_detail.json with {len(laws_detail)} law entries")
+
+    # 3c. Per-year voter-names indices (loaded on-demand on first bar-click)
+    votes_dir = DOCS_DATA_DIR / "votes"
+    votes_dir.mkdir(parents=True, exist_ok=True)
+    total_votaciones = 0
+    for year, ydata in sorted(votes_by_year.items()):
+        save_json(votes_dir / f"votes_{year}.json", ydata)
+        total_votaciones += len(ydata["v"])
+    log.info(f"Generated {len(votes_by_year)} per-year vote files "
+             f"({total_votaciones} votaciones total)")
 
     # 4. Law names list
     law_names_set = set()

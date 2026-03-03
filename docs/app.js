@@ -5,7 +5,7 @@
  *   - Search legislators by name, bloc, province
  *   - Filter by chamber, coalition, year, law name
  *   - Waffle/grid visualization grouped by law
- *   - Notable laws infographic with legislator photo
+ *   - Law search with per-coalition vote breakdown
  *   - Alignment charts (line + bar)
  *   - Vote history table with pagination
  *   - Copy image / Share to Twitter
@@ -16,6 +16,8 @@
 // ===========================================================================
 
 let legislatorsData = [];
+let lawsData = [];           // loaded from laws_detail.json
+let currentSelectedLaw = null;  // currently displayed law in the detail card
 let currentDetail = null;
 let currentLegKey = null; // The data-key used to load current legislator
 let chartAlignment = null;
@@ -27,25 +29,6 @@ const VOTES_PER_PAGE = 25;
 const LAWS_PER_PAGE = 10;
 
 const DATA_PATH = "data";
-
-// Notable laws — these are the ones we show on the homepage infographic
-const NOTABLE_LAW_KEYWORDS = [
-    "Ley Bases",
-    "Ley de Bases",
-    "Paquete Fiscal",
-    "Inversiones",
-    "DNU 70/2023",
-    "Reforma Laboral",
-    "Financiamiento Universitario",
-    "Movilidad Jubilatoria",
-    "Privatizaciones",
-    "Boleta Unica",
-    "Ficha Limpia",
-    "IVE / Aborto",
-    "Presupuesto",
-    "Impuesto a las Ganancias",
-    "Ciencia"
-];
 
 // ===========================================================================
 //  SEARCH
@@ -139,153 +122,373 @@ function hideSearchResults() {
 }
 
 // ===========================================================================
-//  NOTABLE LAWS SECTION (homepage)
+//  LAW SEARCH SECTION (homepage)
 // ===========================================================================
 
-function onNotableSearchInput() {
-    const query = document.getElementById("notable-search").value.trim().toLowerCase();
-    const dropdown = document.getElementById("notable-search-results");
+function onLawSearchInput() {
+    const query = document.getElementById("law-search").value.trim().toLowerCase();
+    const yearVal = document.getElementById("law-year-filter").value;
+    const chamberVal = document.getElementById("law-chamber-filter").value;
+    const dropdown = document.getElementById("law-search-results");
 
-    if (!query || query.length < 2) {
-        dropdown.classList.add("hidden");
-        return;
+    let results = lawsData;
+
+    // When no filters and no query, show notable laws on focus
+    const hasFilter = yearVal || chamberVal;
+    if (!query && !hasFilter) {
+        // Show notable (common_name) laws by default
+        results = results.filter((l) => l.cn);
     }
 
-    const terms = query.split(/\s+/);
-    let results = legislatorsData.filter((l) => {
-        const searchable = `${l.n} ${l.b} ${l.p}`.toLowerCase();
-        return terms.every((t) => searchable.includes(t));
-    });
-    results.sort((a, b) => (b.tv || 0) - (a.tv || 0));
-    results = results.slice(0, 20);
+    if (yearVal) {
+        results = results.filter((l) => String(l.y) === yearVal);
+    }
+    if (chamberVal) {
+        results = results.filter((l) => l.ch === chamberVal);
+    }
+    if (query) {
+        const terms = query.split(/\s+/);
+        results = results.filter((l) => {
+            const searchable = (l.n || "").toLowerCase();
+            return terms.every((t) => searchable.includes(t));
+        });
+    }
+
+    results = results.slice(0, 40);
 
     if (results.length === 0) {
-        dropdown.innerHTML = `<div class="notable-dropdown-item" style="cursor:default; color:var(--color-text-secondary); justify-content:center;">Sin resultados</div>`;
+        dropdown.innerHTML = `<div class="law-dropdown-item" style="cursor:default; color:var(--color-text-secondary); text-align:center;">Sin resultados</div>`;
         dropdown.classList.remove("hidden");
         return;
     }
 
-    dropdown.innerHTML = results.map((l) => {
-        const photoHtml = l.ph
-            ? `<img src="${escapeAttr(l.ph)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+    dropdown.innerHTML = results.map((l, idx) => {
+        const notable = l.cn ? `<span class="law-dropdown-notable">⭐</span>` : "";
+        const chamberBadge = l.ch === "diputados"
+            ? `<span class="badge badge-diputados">Dip.</span>`
+            : l.ch === "senadores"
+            ? `<span class="badge badge-senadores">Sen.</span>`
             : "";
+        const yearBadge = l.y ? `<span class="law-dropdown-year">${l.y}</span>` : "";
         return `
-        <div class="notable-dropdown-item" data-key="${l.k}">
-            ${photoHtml}<span class="no-photo" ${l.ph ? 'style="display:none"' : ""}>👤</span>
-            <span>${escapeHtml(l.n)} <small style="color:var(--color-text-secondary)">${l.co} · ${l.p || ""}</small></span>
+        <div class="law-dropdown-item" data-law-idx="${idx}">
+            <span class="law-dropdown-name">${notable}${escapeHtml(l.n)}</span>
+            <span class="law-dropdown-meta">${yearBadge} ${chamberBadge}</span>
         </div>`;
     }).join("");
 
     dropdown.classList.remove("hidden");
 
-    dropdown.querySelectorAll(".notable-dropdown-item[data-key]").forEach((el) => {
+    // Store filtered results in a closure for click handlers
+    const filteredResults = results;
+    dropdown.querySelectorAll(".law-dropdown-item[data-law-idx]").forEach((el) => {
         el.addEventListener("click", () => {
+            const law = filteredResults[parseInt(el.dataset.lawIdx)];
+            if (law) selectLaw(law);
             dropdown.classList.add("hidden");
-            document.getElementById("notable-search").value = "";
-            loadNotableCard(el.dataset.key);
         });
     });
 }
 
-let notableCardData = null; // Store notable card data for popup date lookups
-
-async function loadNotableCard(nameKey) {
-    const safeKey = nameKey.replace(/[^A-Z0-9_]/g, "_").substring(0, 80);
-    const url = `${DATA_PATH}/legislators/${safeKey}.json`;
-
-    try {
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const data = await resp.json();
-        notableCardData = data;
-        renderNotableCard(data);
-    } catch (err) {
-        console.error("Error loading notable card:", err);
-    }
-}
-
-function renderNotableCard(data) {
-    const wrapper = document.getElementById("notable-card-wrapper");
+function selectLaw(law) {
+    currentSelectedLaw = law;
+    const wrapper = document.getElementById("law-detail-wrapper");
     wrapper.classList.remove("hidden");
 
-    const left = document.getElementById("notable-card-left");
-    const right = document.getElementById("notable-card-right");
+    // Title
+    const titleEl = document.getElementById("law-detail-title");
+    titleEl.textContent = law.n || "Ley";
 
-    // Left: photo + name + chamber
-    const chambers = data.chambers || [data.chamber];
-    const chamberLabel = chambers.length > 1 ? "HCD + HCS" : (chambers[0] === "diputados" ? "HCD" : "HCS");
-
-    const photoHtml = data.photo
-        ? `<img class="notable-photo" src="${escapeAttr(data.photo)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-        : "";
-
-    left.innerHTML = `
-        ${photoHtml}
-        <div class="no-photo-large" ${data.photo ? 'style="display:none"' : ""}>👤</div>
-        <div class="notable-name">${escapeHtml(data.name)}</div>
-        <div class="notable-chamber">${chamberLabel}</div>
-    `;
-
-    // Right: waffle grids for notable laws
-    const laws = data.laws || [];
-
-    // Find laws matching notable keywords
-    const notableLaws = [];
-    for (const keyword of NOTABLE_LAW_KEYWORDS) {
-        const kw = keyword.toLowerCase();
-        const match = laws.find((l) => l.name && l.name.toLowerCase().includes(kw));
-        if (match) {
-            notableLaws.push({ ...match, displayName: keyword });
-        }
+    // Meta: year, chamber, # votaciones
+    const metaEl = document.getElementById("law-detail-meta");
+    const chamberLabel = law.ch === "diputados" ? "Diputados" : law.ch === "senadores" ? "Senadores" : "";
+    const parts = [];
+    if (law.y) parts.push(`<span class="badge">${law.y}</span>`);
+    if (chamberLabel) {
+        const cls = law.ch === "diputados" ? "badge-diputados" : "badge-senadores";
+        parts.push(`<span class="badge ${cls}">${chamberLabel}</span>`);
     }
+    if (law.vs && law.vs.length > 1) parts.push(`<span class="badge">${law.vs.length} votaciones</span>`);
+    metaEl.innerHTML = parts.join(" ");
 
-    if (notableLaws.length === 0) {
-        right.innerHTML = `<div class="notable-no-data">Este legislador no tiene votos registrados en las leyes destacadas.</div>`;
+    // Body: per-votación coalition breakdown
+    const body = document.getElementById("law-detail-body");
+    const vs = law.vs || [];
+
+    if (vs.length === 0) {
+        body.innerHTML = `<div class="law-detail-empty">No hay datos de votación disponibles.</div>`;
     } else {
-        right.innerHTML = notableLaws.map((law, lawIdx) => {
-            const tiles = law.votes.map((vote, voteIdx) => {
-                const isGeneral = vote.g === true;
-                const cls = `waffle-tile tile-${vote.v}${isGeneral ? " tile-general" : ""} tile-clickable`;
-                const icon = voteIcon(vote.v);
-                const label = vote.al || (isGeneral ? "En General" : "");
-                const tooltip = label ? `${label}: ${formatVoteShort(vote.v)}` : formatVoteShort(vote.v);
-                return `<div class="${cls}" title="${escapeAttr(tooltip)}" data-notable-law="${lawIdx}" data-notable-vote="${voteIdx}">${icon}</div>`;
-            }).join("");
-
-            return `
-            <div class="notable-law-block">
-                <div class="notable-law-title">${escapeHtml(law.displayName)}</div>
-                <div class="notable-law-tiles">${tiles}</div>
-            </div>`;
-        }).join("");
-
-        // Attach click handlers to tiles
-        right.querySelectorAll(".tile-clickable").forEach((tile) => {
-            tile.addEventListener("click", () => {
-                const lIdx = parseInt(tile.dataset.notableLaw);
-                const vIdx = parseInt(tile.dataset.notableVote);
-                const law = notableLaws[lIdx];
-                if (law && law.votes[vIdx]) {
-                    showVotePopup(law.displayName, law.votes[vIdx], law.year);
-                }
-            });
-        });
+        body.innerHTML = vs.map((v, vi) => renderLawVotacion(v, vi, vs.length)).join("");
     }
 
     // Scroll into view
     wrapper.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function shareTwitterNotable() {
-    const nameEl = document.querySelector("#notable-card-left .notable-name");
-    const name = nameEl ? nameEl.textContent : "un legislador";
-    const text = `Mirá cómo votó ${name} las leyes más importantes en el Congreso Argentino 🗳️\n\n¿Cómo Votó? - comovoto.dev.ar`;
-    // Build URL pointing to the homepage (notable section isn't deep-linkable yet)
+function renderLawVotacion(v, idx, totalCount) {
+    const coalitions = [
+        { key: "pj",  label: "PJ / UxP",  cls: "bar-pj" },
+        { key: "ucr", label: "UCR",       cls: "bar-ucr" },
+        { key: "pro", label: "PRO",       cls: "bar-pro" },
+        { key: "lla", label: "LLA",       cls: "bar-lla" },
+        { key: "cc",  label: "CC - ARI",  cls: "bar-cc" },
+        { key: "oth", label: "Otros",     cls: "bar-oth" },
+    ];
+
+    // Header: section label + full title
+    const sectionLabel = v.tp || "";
+    const fullTitle = v.t || "";
+    const dateStr = v.d || "";
+    const result = (v.r || "").toUpperCase();
+    let resultBadge = "";
+    if (result.includes("AFIRMATIV")) {
+        resultBadge = `<span class="law-result law-result-afirm">Aprobado</span>`;
+    } else if (result.includes("NEGATIV")) {
+        resultBadge = `<span class="law-result law-result-neg">Rechazado</span>`;
+    } else if (result) {
+        resultBadge = `<span class="law-result">${escapeHtml(v.r)}</span>`;
+    }
+
+    // Source link
+    let linkHtml = "";
+    const href = v.url || "";
+    if (href) {
+        linkHtml = `<a class="law-votacion-link" href="${escapeAttr(href)}" target="_blank" title="Ver votación original">🔗</a>`;
+    }
+
+    // Build bars for each coalition
+    const tot = v.tot || [0, 0, 0, 0];
+    const totalVotes = tot[0] + tot[1] + tot[2] + tot[3];
+
+    const barsHtml = coalitions.map((c) => {
+        const counts = v[c.key] || [0, 0, 0, 0];
+        const a = counts[0], n = counts[1], b = counts[2], u = counts[3];
+        const coalTotal = a + n + b + u;
+
+        if (coalTotal === 0) return ""; // skip empty coalitions
+
+        const maxBar = Math.max(totalVotes, 1);
+        const pctA = (a / maxBar) * 100;
+        const pctN = (n / maxBar) * 100;
+        const pctB = (b / maxBar) * 100;
+        const pctU = (u / maxBar) * 100;
+
+        // Summary text
+        const summaryParts = [];
+        if (a) summaryParts.push(`${a} ✓`);
+        if (n) summaryParts.push(`${n} ✗`);
+        if (b) summaryParts.push(`${b} ○`);
+        if (u) summaryParts.push(`${u} —`);
+        const summary = summaryParts.join("  ");
+
+        return `
+        <div class="law-bar-row" data-party="${c.key}">
+            <div class="law-bar-label">${c.label}</div>
+            <div class="law-bar-track">
+                <div class="law-bar-seg bar-afirm" style="width:${pctA}%"></div>
+                <div class="law-bar-seg bar-neg" style="width:${pctN}%"></div>
+                <div class="law-bar-seg bar-abst" style="width:${pctB}%"></div>
+                <div class="law-bar-seg bar-aus" style="width:${pctU}%"></div>
+            </div>
+            <div class="law-bar-counts">${summary}</div>
+        </div>`;
+    }).join("");
+
+    // Total row
+    const totA = tot[0], totN = tot[1], totB = tot[2], totU = tot[3];
+    const totParts = [];
+    if (totA) totParts.push(`${totA} ✓`);
+    if (totN) totParts.push(`${totN} ✗`);
+    if (totB) totParts.push(`${totB} ○`);
+    if (totU) totParts.push(`${totU} —`);
+
+    const totalRow = `
+    <div class="law-bar-row law-bar-total">
+        <div class="law-bar-label">Total</div>
+        <div class="law-bar-track">
+            <div class="law-bar-seg bar-afirm" style="width:${(totA / Math.max(totalVotes,1)) * 100}%"></div>
+            <div class="law-bar-seg bar-neg" style="width:${(totN / Math.max(totalVotes,1)) * 100}%"></div>
+            <div class="law-bar-seg bar-abst" style="width:${(totB / Math.max(totalVotes,1)) * 100}%"></div>
+            <div class="law-bar-seg bar-aus" style="width:${(totU / Math.max(totalVotes,1)) * 100}%"></div>
+        </div>
+        <div class="law-bar-counts">${totParts.join("  ")}</div>
+    </div>`;
+
+    // Show separator if multiple votaciones
+    const showTitle = totalCount > 1;
+
+    return `
+    <div class="law-votacion-block${!showTitle ? " law-votacion-single" : ""}" data-vi="${v.vi != null ? v.vi : ''}">
+        ${showTitle ? `
+        <div class="law-votacion-header">
+            <div class="law-votacion-topline">
+                ${sectionLabel ? `<span class="law-votacion-type">${escapeHtml(sectionLabel)}</span>` : ""}
+                <span class="law-votacion-date">${escapeHtml(dateStr)}</span>
+                ${resultBadge}
+                ${linkHtml}
+            </div>
+            ${fullTitle ? `<div class="law-votacion-fullname">${escapeHtml(fullTitle)}</div>` : ""}
+        </div>` : `
+        <div class="law-votacion-header law-votacion-header-single">
+            <span class="law-votacion-date">${escapeHtml(dateStr)}</span>
+            ${resultBadge}
+            ${linkHtml}
+        </div>`}
+        <div class="law-bars-container">
+            ${barsHtml}
+            ${totalRow}
+        </div>
+        <div class="law-voter-list" style="display:none"></div>
+    </div>`;
+}
+
+function shareTwitterLaw() {
+    if (!currentSelectedLaw) return;
+    const name = currentSelectedLaw.n || "una ley";
+    const text = `Mirá cómo votó cada bloque "${name}" en el Congreso Argentino 🗳️`;
     const base = window.location.origin + window.location.pathname;
     const url = encodeURIComponent(base);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${url}`;
     window.open(tweetUrl, "_blank", "width=600,height=400");
 }
+
+// ===========================================================================
+//  VOTE DETAIL (per-bar click drill-down)
+// ===========================================================================
+
+const _votesYearCache = {};   // { year: { n: [...], v: {...} } }
+const _votesYearPromise = {}; // { year: Promise }
+
+const PARTY_LABELS = {
+    pj: "PJ / UxP", ucr: "UCR", pro: "PRO",
+    lla: "LLA", cc: "CC - ARI", oth: "Otros",
+};
+const VOTE_TYPE_LABELS = ["Afirmativo", "Negativo", "Abstención", "Ausente"];
+const VOTE_TYPE_CLASSES = ["voter-afirm", "voter-neg", "voter-abst", "voter-aus"];
+const ALL_PARTY_KEYS = ["pj", "ucr", "pro", "lla", "cc", "oth"];
+
+function loadVotesYear(year) {
+    if (_votesYearCache[year]) return Promise.resolve(_votesYearCache[year]);
+    if (_votesYearPromise[year]) return _votesYearPromise[year];
+    _votesYearPromise[year] = fetch(`${DATA_PATH}/votes/votes_${year}.json`)
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(data => { _votesYearCache[year] = data; return data; })
+        .catch(e => { console.warn(`Failed to load votes for ${year}`, e); delete _votesYearPromise[year]; return null; });
+    return _votesYearPromise[year];
+}
+
+function resolveVoterNames(yearData, vi) {
+    if (!yearData) return null;
+    const entry = yearData.v[String(vi)];
+    if (!entry) return null;
+    const names = yearData.n;
+    const resolved = {};
+    for (const pk of ALL_PARTY_KEYS) {
+        if (!entry[pk]) continue;
+        resolved[pk] = entry[pk].map(arr => arr.map(idx => names[idx]));
+    }
+    return resolved;
+}
+
+function onBarSegmentClick(e) {
+    const seg = e.target.closest(".law-bar-seg");
+    if (!seg) return;
+    if (parseFloat(seg.style.width) < 0.01) return;
+
+    const row = seg.closest(".law-bar-row");
+    const block = seg.closest(".law-votacion-block");
+    if (!block) return;
+    const vi = block.dataset.vi;
+    if (vi === "" || vi == null) return;
+
+    const listEl = block.querySelector(".law-voter-list");
+    if (!listEl) return;
+
+    const year = currentSelectedLaw && currentSelectedLaw.y;
+    if (!year) return;
+
+    const party = row.dataset.party || "all";
+
+    let voteIdx = -1;
+    if (seg.classList.contains("bar-afirm")) voteIdx = 0;
+    else if (seg.classList.contains("bar-neg")) voteIdx = 1;
+    else if (seg.classList.contains("bar-abst")) voteIdx = 2;
+    else if (seg.classList.contains("bar-aus")) voteIdx = 3;
+    if (voteIdx < 0) return;
+
+    const filterKey = `${party}_${voteIdx}`;
+    if (listEl.style.display !== "none" && listEl.dataset.filter === filterKey) {
+        listEl.style.display = "none";
+        listEl.innerHTML = "";
+        listEl.dataset.filter = "";
+        return;
+    }
+
+    listEl.style.display = "block";
+    listEl.dataset.filter = filterKey;
+    listEl.innerHTML = `<div class="voter-loading">Cargando…</div>`;
+
+    loadVotesYear(year).then(yearData => {
+        if (listEl.dataset.filter !== filterKey) return;
+        const detail = resolveVoterNames(yearData, vi);
+        if (!detail) {
+            listEl.innerHTML = `<div class="voter-loading">No hay datos disponibles.</div>`;
+            return;
+        }
+        renderVoterList(listEl, detail, party, voteIdx);
+    });
+}
+
+function renderVoterList(listEl, detail, party, voteIdx) {
+    const parties = party === "all" ? ALL_PARTY_KEYS : [party];
+    const voteLabel = VOTE_TYPE_LABELS[voteIdx];
+    const voteCls = VOTE_TYPE_CLASSES[voteIdx];
+
+    // Collect voters grouped by party
+    let totalCount = 0;
+    const groups = [];
+    for (const pk of parties) {
+        const names = (detail[pk] && detail[pk][voteIdx]) || [];
+        if (names.length === 0) continue;
+        const sorted = names.slice().sort((a, b) => a.localeCompare(b, "es"));
+        totalCount += sorted.length;
+        groups.push({ pk, label: PARTY_LABELS[pk] || pk, names: sorted });
+    }
+
+    if (totalCount === 0) {
+        listEl.innerHTML = `<div class="voter-loading">Sin legisladores.</div>`;
+        return;
+    }
+
+    // Header
+    const partyTitle = party === "all" ? "Todos" : (PARTY_LABELS[party] || party);
+    let html = `<div class="voter-header ${voteCls}">
+        <span class="voter-header-label">${escapeHtml(partyTitle)} — ${escapeHtml(voteLabel)}</span>
+        <span class="voter-header-count">${totalCount}</span>
+        <button class="voter-close" onclick="this.closest('.law-voter-list').style.display='none'" title="Cerrar">✕</button>
+    </div>`;
+
+    // Body
+    html += `<div class="voter-body">`;
+    for (const g of groups) {
+        if (parties.length > 1) {
+            html += `<div class="voter-group-header" data-party="${g.pk}">${escapeHtml(g.label)} <span class="voter-group-count">(${g.names.length})</span></div>`;
+        }
+        for (const name of g.names) {
+            html += `<div class="voter-item ${voteCls}">${escapeHtml(name)}</div>`;
+        }
+    }
+    html += `</div>`;
+
+    listEl.innerHTML = html;
+}
+
+// Attach bar-click listener via delegation on the law detail body
+document.addEventListener("click", function (e) {
+    if (e.target.closest(".law-bar-seg")) {
+        onBarSegmentClick(e);
+    }
+});
 
 // ===========================================================================
 //  LEGISLATOR DETAIL
@@ -306,7 +509,7 @@ async function loadLegislatorDetail(nameKey, urlParams) {
     detailSection.classList.remove("hidden");
     document.querySelector(".search-section").classList.add("hidden");
     document.getElementById("stats-bar").classList.add("hidden");
-    document.getElementById("notable-laws-section").classList.add("hidden");
+    document.getElementById("law-search-section").classList.add("hidden");
 
     // Show loading state
     document.getElementById("leg-name").textContent = "Cargando...";
@@ -508,7 +711,7 @@ function showSearchView() {
     document.getElementById("legislator-detail").classList.add("hidden");
     document.querySelector(".search-section").classList.remove("hidden");
     document.getElementById("stats-bar").classList.remove("hidden");
-    document.getElementById("notable-laws-section").classList.remove("hidden");
+    document.getElementById("law-search-section").classList.remove("hidden");
 
     // Clear deep-link params from URL without reload
     if (window.location.search) {
@@ -658,7 +861,7 @@ function showVotePopup(lawName, vote, lawYear) {
     // Try to find the date from the top-level votes if not in law-level vote
     let dateStr = vote.d || "";
     if (!dateStr && vote.vid && vote.ch) {
-        const detailData = currentDetail || notableCardData;
+        const detailData = currentDetail;
         if (detailData) {
             const match = (detailData.votes || []).find(
                 (v) => String(v.vid) === String(vote.vid) && v.ch === vote.ch
@@ -1277,6 +1480,26 @@ function parseArgDate(dateStr) {
         console.error("Error loading legislators.json:", err);
     }
 
+    // Load laws detail data for the law search section
+    try {
+        const lawResp = await fetch(`${DATA_PATH}/laws_detail.json`);
+        if (lawResp.ok) {
+            lawsData = await lawResp.json();
+            // Populate year filter
+            const years = [...new Set(lawsData.map((l) => l.y).filter(Boolean))].sort();
+            const lawYearFilter = document.getElementById("law-year-filter");
+            if (lawYearFilter) {
+                for (const y of years) {
+                    lawYearFilter.innerHTML += `<option value="${y}">${y}</option>`;
+                }
+            }
+        } else {
+            console.warn("Could not load laws_detail.json", lawResp.status);
+        }
+    } catch (err) {
+        console.error("Error loading laws_detail.json:", err);
+    }
+
     // Wire search and basic controls
     const sin = document.getElementById("search-input");
     if (sin) sin.addEventListener("input", debounce(onSearchInput, 250));
@@ -1308,14 +1531,40 @@ function parseArgDate(dateStr) {
     const backBtn = document.getElementById("back-btn");
     if (backBtn) backBtn.addEventListener("click", showSearchView);
 
-    const notableInput = document.getElementById("notable-search");
-    if (notableInput) notableInput.addEventListener("input", debounce(onNotableSearchInput, 200));
+    // Wire law search controls
+    const lawSearchInput = document.getElementById("law-search");
+    if (lawSearchInput) lawSearchInput.addEventListener("input", debounce(onLawSearchInput, 200));
+    if (lawSearchInput) lawSearchInput.addEventListener("focus", () => {
+        // On focus, show filtered results (even without text, if filters are set)
+        onLawSearchInput();
+    });
 
-    // Wire notable card share / copy buttons
-    const btnCopyNotable = document.getElementById("btn-copy-notable");
-    if (btnCopyNotable) btnCopyNotable.addEventListener("click", () => copyCardImage("notable-card", "btn-copy-notable"));
-    const btnShareNotable = document.getElementById("btn-share-notable-tw");
-    if (btnShareNotable) btnShareNotable.addEventListener("click", shareTwitterNotable);
+    // Dismiss law dropdown on Escape / click-outside
+    const lawDropdown = document.getElementById("law-search-results");
+    let lawDropdownMousedown = false;
+    if (lawDropdown) {
+        lawDropdown.addEventListener("mousedown", () => { lawDropdownMousedown = true; });
+        lawDropdown.addEventListener("mouseup",   () => { lawDropdownMousedown = false; });
+    }
+    if (lawSearchInput) {
+        lawSearchInput.addEventListener("blur", () => {
+            if (!lawDropdownMousedown && lawDropdown) lawDropdown.classList.add("hidden");
+        });
+        lawSearchInput.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && lawDropdown) { lawDropdown.classList.add("hidden"); lawSearchInput.blur(); }
+        });
+    }
+
+    const lawYearFilterEl = document.getElementById("law-year-filter");
+    if (lawYearFilterEl) lawYearFilterEl.addEventListener("change", onLawSearchInput);
+    const lawChamberFilterEl = document.getElementById("law-chamber-filter");
+    if (lawChamberFilterEl) lawChamberFilterEl.addEventListener("change", onLawSearchInput);
+
+    // Wire law card share / copy buttons
+    const btnCopyLaw = document.getElementById("btn-copy-law");
+    if (btnCopyLaw) btnCopyLaw.addEventListener("click", () => copyCardImage("law-detail-card", "btn-copy-law"));
+    const btnShareLaw = document.getElementById("btn-share-law-tw");
+    if (btnShareLaw) btnShareLaw.addEventListener("click", shareTwitterLaw);
 
     // Wire waffle filters
     const waffleLawFilter = document.getElementById("waffle-law-filter");
