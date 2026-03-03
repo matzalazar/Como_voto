@@ -17,6 +17,7 @@
 
 let legislatorsData = [];
 let currentDetail = null;
+let currentLegKey = null; // The data-key used to load current legislator
 let chartAlignment = null;
 let chartYearly = null;
 let currentVotesPage = 1;
@@ -277,7 +278,9 @@ function shareTwitterNotable() {
     const nameEl = document.querySelector("#notable-card-left .notable-name");
     const name = nameEl ? nameEl.textContent : "un legislador";
     const text = `Mirá cómo votó ${name} las leyes más importantes en el Congreso Argentino 🗳️\n\n¿Cómo Votó? - comovoto.dev.ar`;
-    const url = encodeURIComponent(window.location.href);
+    // Build URL pointing to the homepage (notable section isn't deep-linkable yet)
+    const base = window.location.origin + window.location.pathname;
+    const url = encodeURIComponent(base);
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${url}`;
     window.open(tweetUrl, "_blank", "width=600,height=400");
 }
@@ -286,7 +289,7 @@ function shareTwitterNotable() {
 //  LEGISLATOR DETAIL
 // ===========================================================================
 
-async function loadLegislatorDetail(nameKey) {
+async function loadLegislatorDetail(nameKey, urlParams) {
     hideSearchResults();
 
     // Increment request ID to invalidate any in-flight loads
@@ -294,6 +297,8 @@ async function loadLegislatorDetail(nameKey) {
 
     // Clean up previous detail state before showing new one
     cleanupLegislatorDetail();
+
+    currentLegKey = nameKey;
 
     const detailSection = document.getElementById("legislator-detail");
     detailSection.classList.remove("hidden");
@@ -317,6 +322,22 @@ async function loadLegislatorDetail(nameKey) {
         // Check again after parsing
         if (thisRequest !== loadRequestId) return;
         renderLegislatorDetail(currentDetail);
+
+        // Apply URL-provided filters if this was loaded from a shared link
+        if (urlParams) {
+            if (urlParams.wy) {
+                const wyfEl = document.getElementById("waffle-year-filter");
+                if (wyfEl) { wyfEl.value = urlParams.wy; }
+            }
+            if (urlParams.wq) {
+                const wlfEl = document.getElementById("waffle-law-filter");
+                if (wlfEl) { wlfEl.value = urlParams.wq; }
+            }
+            if (urlParams.wy || urlParams.wq) {
+                currentWafflePage = 1;
+                renderWaffle();
+            }
+        }
     } catch (err) {
         if (thisRequest !== loadRequestId) return;
         console.error("Error loading legislator:", err);
@@ -337,6 +358,7 @@ function cleanupLegislatorDetail() {
 
     // Clear global data reference
     currentDetail = null;
+    currentLegKey = null;
 
     // Reset pagination
     currentVotesPage = 1;
@@ -485,6 +507,11 @@ function showSearchView() {
     document.querySelector(".search-section").classList.remove("hidden");
     document.getElementById("stats-bar").classList.remove("hidden");
     document.getElementById("notable-laws-section").classList.remove("hidden");
+
+    // Clear deep-link params from URL without reload
+    if (window.location.search) {
+        history.replaceState(null, "", window.location.pathname);
+    }
 
     // Invalidate any in-flight loads
     loadRequestId++;
@@ -767,11 +794,27 @@ async function copyWaffleImage() {
     await copyCardImage("waffle-card", "btn-copy-image");
 }
 
+/**
+ * Build a shareable URL pointing to the current legislator view,
+ * optionally including the active waffle year / text filters.
+ */
+function buildShareUrl() {
+    const base = window.location.origin + window.location.pathname;
+    const params = new URLSearchParams();
+    if (currentLegKey) params.set("leg", currentLegKey);
+    const wy = document.getElementById("waffle-year-filter");
+    if (wy && wy.value) params.set("wy", wy.value);
+    const wq = document.getElementById("waffle-law-filter");
+    if (wq && wq.value.trim()) params.set("wq", wq.value.trim());
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
+}
+
 function shareTwitter() {
     if (!currentDetail) return;
     const name = currentDetail.name;
-    const text = `Mirá cómo votó ${name} en el Congreso Argentino 🗳️\n\n¿Cómo Votó? - comovoto.dev.ar`;
-    const url = encodeURIComponent(window.location.href);
+    const text = `Mirá cómo votó ${name} en el Congreso Argentino 🗳️`;
+    const url = encodeURIComponent(buildShareUrl());
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${url}`;
     window.open(tweetUrl, "_blank", "width=600,height=400");
 }
@@ -1272,6 +1315,16 @@ function parseArgDate(dateStr) {
 
     // Populate initial small search result if desired (empty/hidden)
     hideSearchResults();
+
+    // Deep-link: if URL contains ?leg=KEY, auto-load that legislator
+    const urlParams = new URLSearchParams(window.location.search);
+    const legParam = urlParams.get("leg");
+    if (legParam) {
+        loadLegislatorDetail(legParam, {
+            wy: urlParams.get("wy") || "",
+            wq: urlParams.get("wq") || "",
+        });
+    }
     // Wire waffle/legislator detail share + copy buttons
     const btnCopyWaffle = document.getElementById("btn-copy-image");
     if (btnCopyWaffle) btnCopyWaffle.addEventListener("click", copyWaffleImage);
