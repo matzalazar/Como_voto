@@ -676,6 +676,15 @@ async function copyCardImage(cardId, btnId) {
     const btn = document.getElementById(btnId);
     const originalText = btn.innerHTML;
 
+    // Clamp the card to 600 CSS-px (→ 1200px at 2× scale) so the exported
+    // image is roughly square/4:3 regardless of the desktop viewport width.
+    const EXPORT_MAX_W = 600;
+    const prevWidth    = card.style.width;
+    const prevMaxWidth = card.style.maxWidth;
+    card.style.width    = EXPORT_MAX_W + "px";
+    card.style.maxWidth = EXPORT_MAX_W + "px";
+    void card.offsetHeight; // force reflow before capture
+
     try {
         btn.innerHTML = "⏳ Generando...";
         btn.disabled = true;
@@ -747,6 +756,10 @@ async function copyCardImage(cardId, btnId) {
         console.error("Unexpected error in copyCardImage:", err);
         btn.innerHTML = "Error :(";
         setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+    } finally {
+        // Always restore the card's original dimensions after export.
+        card.style.width    = prevWidth;
+        card.style.maxWidth = prevMaxWidth;
     }
 }
 
