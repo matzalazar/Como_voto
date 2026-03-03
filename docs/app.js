@@ -903,14 +903,27 @@ function hideVotePopup() {
 //  SHARE / EXPORT
 // ===========================================================================
 
-async function copyCardImage(cardId, btnId) {
+/** Returns true when the browser is likely a mobile / touch device. */
+const isMobile = () =>
+    /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    window.matchMedia("(pointer: coarse)").matches;
+
+/**
+ * Export a DOM card as a PNG image.
+ * @param {string} cardId  - id of the element to capture
+ * @param {string} btnId   - id of the button that triggered the action
+ * @param {'copy'|'download'} mode
+ *   'copy'     → clipboard on desktop; falls back to download on mobile
+ *   'download' → always triggers a file download
+ */
+async function exportCardImage(cardId, btnId, mode = "copy") {
     const card = document.getElementById(cardId);
-    const btn = document.getElementById(btnId);
+    const btn  = document.getElementById(btnId);
     const originalText = btn.innerHTML;
 
-    // Clamp the card to 480 CSS-px (→ 960px at 2× scale) so the exported
-    // image is roughly square/4:3 regardless of the desktop viewport width.
-    const EXPORT_MAX_W = 480;
+    // Clamp the card to 360 CSS-px (→ 1080 px at 3× scale) so the exported
+    // image is a crisp 1080-wide share card regardless of viewport width.
+    const EXPORT_MAX_W = 360;
     const prevWidth    = card.style.width;
     const prevMaxWidth = card.style.maxWidth;
     card.style.width    = EXPORT_MAX_W + "px";
@@ -918,88 +931,224 @@ async function copyCardImage(cardId, btnId) {
     card.classList.add("exporting");
     void card.offsetHeight; // force reflow before capture
 
+    const mobile = isMobile();
+
+    /** Trigger a browser download for a Blob. */
+    function triggerDownload(blob) {
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement("a");
+        a.href     = url;
+        a.download = `como_voto_${cardId}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     try {
         btn.innerHTML = "⏳ Generando...";
-        btn.disabled = true;
-        // Try html2canvas with CORS first (best fidelity). If it fails (tainted images
-        // or CORS errors), fall back to a less strict render (allowTaint) and then
-        // finally to a download fallback.
-        try {
-            const canvas = await html2canvas(card, {
-                backgroundColor: "#ffffff",
-                scale: 2,
-                useCORS: true,
-                logging: false,
-            });
+        btn.disabled  = true;
 
-            const blob = await new Promise((resolve, reject) => {
-                canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png");
-            });
-
+        if (mode === "download") {
+            // ── DOWNLOAD MODE ──────────────────────────────────────────────
+            // Try CORS-clean render first; fall back to allowTaint for
+            // cross-origin photos (tainted canvas is fine for download).
             try {
-                await navigator.clipboard.write([
-                    new ClipboardItem({ "image/png": blob }),
-                ]);
-                btn.innerHTML = "✓ Copiado!";
-                setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
-            } catch (e) {
-                console.warn("Clipboard write failed, falling back to download:", e);
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `como_voto_${cardId}.png`;
-                a.click();
-                URL.revokeObjectURL(url);
+                const canvas = await html2canvas(card, {
+                    backgroundColor: "#ffffff", scale: 3, useCORS: true, logging: false,
+                });
+                const blob = await new Promise((res, rej) =>
+                    canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
+                triggerDownload(blob);
                 btn.innerHTML = "✓ Descargado!";
                 setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+            } catch (err) {
+                try {
+                    const canvas2 = await html2canvas(card, {
+                        backgroundColor: "#ffffff", scale: 3,
+                        useCORS: false, allowTaint: true, logging: false,
+                    });
+                    const blob2 = await new Promise((res, rej) =>
+                        canvas2.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
+                    triggerDownload(blob2);
+                    btn.innerHTML = "✓ Descargado!";
+                    setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+                } catch (err2) {
+                    console.error("All attempts to generate image failed:", err2);
+                    btn.innerHTML = "Error :(";
+                    setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+                }
             }
-        } catch (err) {
-            console.warn("html2canvas with CORS failed, retrying with allowTaint:", err);
-            // Retry with allowTaint so html2canvas renders even with cross-origin images.
+        } else {
+            // ── COPY MODE ──────────────────────────────────────────────────
+            // Try html2canvas with CORS (needed for clipboard – tainted canvas
+            // cannot be written to clipboard).
             try {
-                const canvas2 = await html2canvas(card, {
-                    backgroundColor: "#ffffff",
-                    scale: 2,
-                    useCORS: false,
-                    allowTaint: true,
-                    logging: false,
+                const canvas = await html2canvas(card, {
+                    backgroundColor: "#ffffff", scale: 3, useCORS: true, logging: false,
                 });
+                const blob = await new Promise((res, rej) =>
+                    canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
 
-                const blob2 = await new Promise((resolve, reject) => {
-                    canvas2.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png");
-                });
-
-                // When using allowTaint the clipboard may still fail due to tainted canvas,
-                // so we go directly to download fallback.
-                const url = URL.createObjectURL(blob2);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `como_voto_${cardId}.png`;
-                a.click();
-                URL.revokeObjectURL(url);
-                btn.innerHTML = "✓ Descargado!";
-                setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
-            } catch (err2) {
-                console.error("All attempts to generate/export image failed:", err2);
-                btn.innerHTML = "Error :(";
-                setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+                try {
+                    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+                    btn.innerHTML = "✓ Copiado!";
+                    setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+                } catch (clipErr) {
+                    if (mobile) {
+                        // Mobile clipboard is often restricted – fall back to download.
+                        console.warn("Clipboard write failed on mobile, falling back to download:", clipErr);
+                        triggerDownload(blob);
+                        btn.innerHTML = "✓ Descargado!";
+                        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+                    } else {
+                        // Desktop: surface the error instead of silently downloading.
+                        console.error("Clipboard write failed:", clipErr);
+                        btn.innerHTML = "Error al copiar";
+                        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 3000);
+                    }
+                }
+            } catch (err) {
+                // CORS render failed – retry with allowTaint.
+                console.warn("html2canvas CORS failed, retrying with allowTaint:", err);
+                try {
+                    const canvas2 = await html2canvas(card, {
+                        backgroundColor: "#ffffff", scale: 3,
+                        useCORS: false, allowTaint: true, logging: false,
+                    });
+                    const blob2 = await new Promise((res, rej) =>
+                        canvas2.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
+                    if (mobile) {
+                        // Tainted canvas can't go to clipboard; download instead.
+                        triggerDownload(blob2);
+                        btn.innerHTML = "✓ Descargado!";
+                        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+                    } else {
+                        // Desktop: can't copy a tainted canvas – show error.
+                        console.error("Cannot copy to clipboard: canvas is tainted by cross-origin image.");
+                        btn.innerHTML = "Error al copiar";
+                        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 3000);
+                    }
+                } catch (err2) {
+                    console.error("All attempts to generate/export image failed:", err2);
+                    btn.innerHTML = "Error :(";
+                    setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+                }
             }
         }
-    } catch (err) {
-        console.error("Unexpected error in copyCardImage:", err);
+    } catch (outerErr) {
+        console.error("Unexpected error in exportCardImage:", outerErr);
         btn.innerHTML = "Error :(";
         setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
     } finally {
-        // Always restore the card's original dimensions after export.
         card.style.width    = prevWidth;
         card.style.maxWidth = prevMaxWidth;
         card.classList.remove("exporting");
     }
 }
 
-async function copyWaffleImage() {
-    await copyCardImage("waffle-card", "btn-copy-image");
+// ── Waffle card ─────────────────────────────────────────────────────────────
+async function copyWaffleImage()     { await exportCardImage("waffle-card", "btn-copy-image",     "copy"); }
+async function downloadWaffleImage() { await exportCardImage("waffle-card", "btn-download-image", "download"); }
+
+// ── Legislator header card ──────────────────────────────────────────────────
+async function copyLegHeaderImage()     { await exportCardImage("leg-header", "btn-copy-leg-header",     "copy"); }
+async function downloadLegHeaderImage() { await exportCardImage("leg-header", "btn-download-leg-header", "download"); }
+
+// ── Alignment chart card ────────────────────────────────────────────────────
+// We can't simply resize the live chart-card: Chart.js renders onto a canvas
+// at a fixed pixel size and html2canvas will capture that raw pixel buffer,
+// producing a cut-off image when the wrapper is narrowed. Instead we build a
+// dedicated off-screen export card that:
+//   1. Embeds the chart via chartAlignment.toBase64Image() (a clean data URL)
+//   2. Prepends a header with the legislator's photo + name + meta
+async function exportAlignmentCard(btnId, mode) {
+    if (!chartAlignment || !currentDetail) return;
+    const btn  = document.getElementById(btnId);
+    const card = document.getElementById("alignment-export-card");
+    const headerEl = document.getElementById("alignment-export-header");
+    const imgEl    = document.getElementById("alignment-export-img");
+    const originalText = btn.innerHTML;
+
+    // Populate header
+    const d = currentDetail;
+    const chambers = d.chambers || [d.chamber];
+    const chamberLabel = chambers.length > 1
+        ? "Dip. + Sen."
+        : chambers[0] === "diputados" ? "Diputado/a" : "Senador/a";
+    const photoHtml = d.photo
+        ? `<img src="${d.photo}" class="aec-photo" alt="" crossorigin="anonymous">`
+        : `<div class="aec-photo-placeholder"></div>`;
+    headerEl.innerHTML = `
+        <div class="aec-header-inner">
+            ${photoHtml}
+            <div class="aec-info">
+                <div class="aec-name">${d.name}</div>
+                <div class="aec-meta">${chamberLabel}&ensp;&middot;&ensp;${shortPartyName(d.bloc)}&ensp;&middot;&ensp;${d.province}</div>
+            </div>
+        </div>`;
+
+    // Snapshot the live chart as a data URL (avoids any canvas taint / size issues)
+    imgEl.src = chartAlignment.toBase64Image("image/png", 1);
+
+    // Reveal card off-screen for capture
+    card.style.display = "block";
+    void card.offsetHeight;
+
+    btn.innerHTML = "⏳ Generando...";
+    btn.disabled  = true;
+
+    const mobile = isMobile();
+
+    function triggerDl(blob) {
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement("a");
+        a.href     = url;
+        a.download = `como_voto_alineamiento.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    try {
+        // Wait for the photo (cross-origin) to finish loading before capturing
+        const photoImg = headerEl.querySelector("img.aec-photo");
+        if (photoImg && !photoImg.complete) {
+            await new Promise((res) => { photoImg.onload = res; photoImg.onerror = res; });
+        }
+
+        const canvas = await html2canvas(card, {
+            backgroundColor: "#ffffff", scale: 3, useCORS: true, logging: false,
+        });
+        const blob = await new Promise((res, rej) =>
+            canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
+
+        if (mode === "download") {
+            triggerDl(blob);
+            btn.innerHTML = "✓ Descargado!";
+        } else {
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+                btn.innerHTML = "✓ Copiado!";
+            } catch (e) {
+                if (mobile) {
+                    triggerDl(blob);
+                    btn.innerHTML = "✓ Descargado!";
+                } else {
+                    console.error("Clipboard write failed:", e);
+                    btn.innerHTML = "Error al copiar";
+                }
+            }
+        }
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+    } catch (err) {
+        console.error("Error exporting alignment chart:", err);
+        btn.innerHTML = "Error :(";
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+    } finally {
+        card.style.display = "none";
+    }
 }
+
+async function copyAlignmentImage()     { await exportAlignmentCard("btn-copy-alignment",     "copy"); }
+async function downloadAlignmentImage() { await exportAlignmentCard("btn-download-alignment", "download"); }
 
 /**
  * Build a shareable URL pointing to the current legislator view,
@@ -1560,9 +1709,11 @@ function parseArgDate(dateStr) {
     const lawChamberFilterEl = document.getElementById("law-chamber-filter");
     if (lawChamberFilterEl) lawChamberFilterEl.addEventListener("change", onLawSearchInput);
 
-    // Wire law card share / copy buttons
+    // Wire law card share / copy / download buttons
     const btnCopyLaw = document.getElementById("btn-copy-law");
-    if (btnCopyLaw) btnCopyLaw.addEventListener("click", () => copyCardImage("law-detail-card", "btn-copy-law"));
+    if (btnCopyLaw) btnCopyLaw.addEventListener("click", () => exportCardImage("law-detail-card", "btn-copy-law", "copy"));
+    const btnDownloadLaw = document.getElementById("btn-download-law");
+    if (btnDownloadLaw) btnDownloadLaw.addEventListener("click", () => exportCardImage("law-detail-card", "btn-download-law", "download"));
     const btnShareLaw = document.getElementById("btn-share-law-tw");
     if (btnShareLaw) btnShareLaw.addEventListener("click", shareTwitterLaw);
 
@@ -1599,8 +1750,26 @@ function parseArgDate(dateStr) {
     // Wire waffle/legislator detail share + copy buttons
     const btnCopyWaffle = document.getElementById("btn-copy-image");
     if (btnCopyWaffle) btnCopyWaffle.addEventListener("click", copyWaffleImage);
+    const btnDownloadWaffle = document.getElementById("btn-download-image");
+    if (btnDownloadWaffle) btnDownloadWaffle.addEventListener("click", downloadWaffleImage);
     const btnShareWaffle = document.getElementById("btn-share-tw");
     if (btnShareWaffle) btnShareWaffle.addEventListener("click", shareTwitter);
+
+    // Wire legislator header image buttons
+    const btnCopyLegHeader = document.getElementById("btn-copy-leg-header");
+    if (btnCopyLegHeader) btnCopyLegHeader.addEventListener("click", copyLegHeaderImage);
+    const btnDownloadLegHeader = document.getElementById("btn-download-leg-header");
+    if (btnDownloadLegHeader) btnDownloadLegHeader.addEventListener("click", downloadLegHeaderImage);
+    const btnShareLegHeader = document.getElementById("btn-share-leg-header-tw");
+    if (btnShareLegHeader) btnShareLegHeader.addEventListener("click", shareTwitter);
+
+    // Wire alignment chart image buttons
+    const btnCopyAlignment = document.getElementById("btn-copy-alignment");
+    if (btnCopyAlignment) btnCopyAlignment.addEventListener("click", copyAlignmentImage);
+    const btnDownloadAlignment = document.getElementById("btn-download-alignment");
+    if (btnDownloadAlignment) btnDownloadAlignment.addEventListener("click", downloadAlignmentImage);
+    const btnShareAlignment = document.getElementById("btn-share-alignment-tw");
+    if (btnShareAlignment) btnShareAlignment.addEventListener("click", shareTwitter);
 
     // Wire vote popup close handlers
     const popupOverlay = document.getElementById("vote-popup-overlay");
