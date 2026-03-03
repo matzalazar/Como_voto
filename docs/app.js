@@ -1461,7 +1461,7 @@ function parseArgDate(dateStr) {
             if (votEl) votEl.textContent = totalVot || "-";
             const years = stats.years_covered || [];
             if (yrsEl) yrsEl.textContent = years.length ? `${years[0]}–${years[years.length - 1]}` : "-";
-            if (updEl) updEl.textContent = stats.last_updated ? new Date(stats.last_updated).toLocaleString() : "-";
+            if (updEl) updEl.textContent = stats.last_updated ? new Date(stats.last_updated).toLocaleString("es-AR", { hour12: false }) : "-";
         } else {
             console.warn("Could not load stats.json", sresp.status);
         }
