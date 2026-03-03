@@ -51,13 +51,15 @@ const NOTABLE_LAW_KEYWORDS = [
 //  SEARCH
 // ===========================================================================
 
-function onSearchInput() {
+function onSearchInput({ requireQuery = true } = {}) {
     const query = document.getElementById("search-input").value.trim().toLowerCase();
     const chamber = document.getElementById("filter-chamber").value;
     const coalition = document.getElementById("filter-coalition").value;
     const province = (document.getElementById("filter-province")?.value || "").trim();
 
-    if (!query && !chamber && !coalition) {
+    // Filters alone (no text query) should not open the results dropdown
+    // unless explicitly requested (e.g. on focus).
+    if (!query && requireQuery) {
         hideSearchResults();
         return;
     }
@@ -1278,6 +1280,24 @@ function parseArgDate(dateStr) {
     // Wire search and basic controls
     const sin = document.getElementById("search-input");
     if (sin) sin.addEventListener("input", debounce(onSearchInput, 250));
+    if (sin) sin.addEventListener("focus", () => onSearchInput({ requireQuery: false }));
+
+    // Hide results on Escape or when focus leaves the search box.
+    // Use a mousedown guard so clicking a result item isn't swallowed by blur.
+    const searchResults = document.getElementById("search-results");
+    let searchResultsMousedown = false;
+    if (searchResults) {
+        searchResults.addEventListener("mousedown", () => { searchResultsMousedown = true; });
+        searchResults.addEventListener("mouseup",   () => { searchResultsMousedown = false; });
+    }
+    if (sin) {
+        sin.addEventListener("blur", () => {
+            if (!searchResultsMousedown) hideSearchResults();
+        });
+        sin.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") { hideSearchResults(); sin.blur(); }
+        });
+    }
     const clearBtn = document.getElementById("clear-search");
     if (clearBtn) clearBtn.addEventListener("click", () => { document.getElementById("search-input").value = ""; hideSearchResults(); });
     const chamberSel = document.getElementById("filter-chamber");
