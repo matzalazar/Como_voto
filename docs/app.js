@@ -1060,6 +1060,63 @@ async function downloadLegHeaderImage() { await exportCardImage("leg-header", "b
 // dedicated off-screen export card that:
 //   1. Embeds the chart via chartAlignment.toBase64Image() (a clean data URL)
 //   2. Prepends a header with the legislator's photo + name + meta
+/** Render the alignment chart to an offscreen canvas at a fixed export size.
+ * This ensures the exported image always has a good aspect ratio regardless
+ * of how wide the live chart is on-screen.
+ * Returns a data URL.
+ */
+function renderAlignmentForExport() {
+    const EXPORT_W = 1080;  // 360px card × scale:3
+    const EXPORT_H = 540;   // ~2:1 ratio, matches old half-width card proportions
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width  = EXPORT_W;
+    offCanvas.height = EXPORT_H;
+
+    const cfg = chartAlignment.config;
+    const offChart = new Chart(offCanvas, {
+        type: cfg.type,
+        data: {
+            labels: cfg.data.labels,
+            datasets: cfg.data.datasets.map((ds) => ({ ...ds, pointRadius: 6, pointHoverRadius: 8 })),
+        },
+        options: {
+            animation: false,
+            responsive: false,
+            maintainAspectRatio: false,
+            layout: cfg.options.layout,
+            plugins: {
+                legend: {
+                    ...cfg.options.plugins.legend,
+                    labels: {
+                        ...cfg.options.plugins.legend?.labels,
+                        font: { size: 22 },
+                        boxWidth: 9,
+                        boxHeight: 9,
+                        padding: 20,
+                    },
+                },
+                tooltip: { enabled: false },
+            },
+            scales: {
+                x: {
+                    ...cfg.options.scales?.x,
+                    ticks: { ...cfg.options.scales?.x?.ticks, font: { size: 20 }, maxRotation: 45, minRotation: 45 },
+                },
+                y: {
+                    ...cfg.options.scales?.y,
+                    ticks: { ...cfg.options.scales?.y?.ticks, font: { size: 20 } },
+                },
+            },
+            interaction: { mode: "none" },
+        },
+    });
+    offChart.resize(EXPORT_W, EXPORT_H);
+
+    const dataUrl = offCanvas.toDataURL("image/png", 1);
+    offChart.destroy();
+    return dataUrl;
+}
+
 async function exportAlignmentCard(btnId, mode) {
     if (!chartAlignment || !currentDetail) return;
     const btn  = document.getElementById(btnId);
@@ -1086,8 +1143,8 @@ async function exportAlignmentCard(btnId, mode) {
             </div>
         </div>`;
 
-    // Snapshot the live chart as a data URL (avoids any canvas taint / size issues)
-    imgEl.src = chartAlignment.toBase64Image("image/png", 1);
+    // Render chart at a fixed export size (independent of the live canvas width)
+    imgEl.src = renderAlignmentForExport();
 
     // Reveal card off-screen for capture
     card.style.display = "block";
@@ -1150,6 +1207,137 @@ async function exportAlignmentCard(btnId, mode) {
 async function copyAlignmentImage()     { await exportAlignmentCard("btn-copy-alignment",     "copy"); }
 async function downloadAlignmentImage() { await exportAlignmentCard("btn-download-alignment", "download"); }
 
+function renderYearlyForExport() {
+    const EXPORT_W = 1080;
+    const EXPORT_H = 540;
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width  = EXPORT_W;
+    offCanvas.height = EXPORT_H;
+
+    const cfg = chartYearly.config;
+    const offChart = new Chart(offCanvas, {
+        type: cfg.type,
+        data: {
+            labels: cfg.data.labels,
+            datasets: cfg.data.datasets.map((ds) => ({ ...ds })),
+        },
+        options: {
+            animation: false,
+            responsive: false,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    ...cfg.options.plugins.legend,
+                    labels: {
+                        ...cfg.options.plugins.legend?.labels,
+                        font: { size: 22 },
+                        padding: 20,
+                    },
+                },
+                tooltip: { enabled: false },
+            },
+            scales: {
+                x: {
+                    ...cfg.options.scales?.x,
+                    ticks: { ...cfg.options.scales?.x?.ticks, font: { size: 20 }, maxRotation: 45, minRotation: 45 },
+                },
+                y: {
+                    ...cfg.options.scales?.y,
+                    ticks: { ...cfg.options.scales?.y?.ticks, font: { size: 20 } },
+                },
+            },
+        },
+    });
+    offChart.resize(EXPORT_W, EXPORT_H);
+    const dataUrl = offCanvas.toDataURL("image/png", 1);
+    offChart.destroy();
+    return dataUrl;
+}
+
+async function exportYearlyCard(btnId, mode) {
+    if (!chartYearly || !currentDetail) return;
+    const btn      = document.getElementById(btnId);
+    const card     = document.getElementById("yearly-export-card");
+    const headerEl = document.getElementById("yearly-export-header");
+    const imgEl    = document.getElementById("yearly-export-img");
+    const originalText = btn.innerHTML;
+
+    const d = currentDetail;
+    const chambers = d.chambers || [d.chamber];
+    const chamberLabel = chambers.length > 1
+        ? "Dip. + Sen."
+        : chambers[0] === "diputados" ? "Diputado/a" : "Senador/a";
+    const photoHtml = d.photo
+        ? `<img src="${d.photo}" class="aec-photo" alt="" crossorigin="anonymous">`
+        : `<div class="aec-photo-placeholder"></div>`;
+    headerEl.innerHTML = `
+        <div class="aec-header-inner">
+            ${photoHtml}
+            <div class="aec-info">
+                <div class="aec-name">${d.name}</div>
+                <div class="aec-meta">${chamberLabel}&ensp;&middot;&ensp;${shortPartyName(d.bloc)}&ensp;&middot;&ensp;${d.province}</div>
+            </div>
+        </div>`;
+
+    imgEl.src = renderYearlyForExport();
+    card.style.display = "block";
+    void card.offsetHeight;
+
+    btn.innerHTML = "⏳ Generando...";
+    btn.disabled  = true;
+
+    const mobile = isMobile();
+
+    function triggerDl(blob) {
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement("a");
+        a.href     = url;
+        a.download = `como_voto_votaciones.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    try {
+        const photoImg = headerEl.querySelector("img.aec-photo");
+        if (photoImg && !photoImg.complete) {
+            await new Promise((res) => { photoImg.onload = res; photoImg.onerror = res; });
+        }
+        const canvas = await html2canvas(card, {
+            backgroundColor: "#ffffff", scale: 3, useCORS: true, logging: false,
+        });
+        const blob = await new Promise((res, rej) =>
+            canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
+
+        if (mode === "download") {
+            triggerDl(blob);
+            btn.innerHTML = "✓ Descargado!";
+        } else {
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+                btn.innerHTML = "✓ Copiado!";
+            } catch (e) {
+                if (mobile) {
+                    triggerDl(blob);
+                    btn.innerHTML = "✓ Descargado!";
+                } else {
+                    console.error("Clipboard write failed:", e);
+                    btn.innerHTML = "Error al copiar";
+                }
+            }
+        }
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+    } catch (err) {
+        console.error("Error exporting yearly chart:", err);
+        btn.innerHTML = "Error :(";
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+    } finally {
+        card.style.display = "none";
+    }
+}
+
+async function copyYearlyImage()     { await exportYearlyCard("btn-copy-yearly",     "copy"); }
+async function downloadYearlyImage() { await exportYearlyCard("btn-download-yearly", "download"); }
+
 /**
  * Build a shareable URL pointing to the current legislator view,
  * optionally including the active waffle year / text filters.
@@ -1179,11 +1367,24 @@ function shareTwitter() {
 //  CHARTS
 // ===========================================================================
 
+function fullYearRange(data) {
+    const stats = data.yearly_stats || {};
+    // Only include years where the legislator cast at least 5 votes
+    return Object.keys(stats)
+        .map(Number)
+        .filter((y) => {
+            const s = stats[String(y)];
+            return (s.AFIRMATIVO || 0) + (s.NEGATIVO || 0) + (s.ABSTENCION || 0) + (s.AUSENTE || 0) >= 5;
+        })
+        .sort((a, b) => a - b)
+        .map(String);
+}
+
 function renderAlignmentChart(data) {
     if (chartAlignment) chartAlignment.destroy();
 
     const ctx = document.getElementById("chart-alignment").getContext("2d");
-    const years = Object.keys(data.yearly_alignment).sort();
+    const years = fullYearRange(data);
 
     if (years.length === 0) {
         ctx.font = "14px Inter";
@@ -1295,7 +1496,7 @@ function renderAlignmentChart(data) {
                     grid: { color: "rgba(0,0,0,0.05)" },
                 },
                 x: {
-                    ticks: { font: { size: 11 } },
+                    ticks: { font: { size: 11 }, autoSkip: false, maxRotation: 45, minRotation: 45 },
                     grid: { display: false },
                 },
             },
@@ -1308,7 +1509,7 @@ function renderYearlyChart(data) {
     if (chartYearly) chartYearly.destroy();
 
     const ctx = document.getElementById("chart-yearly").getContext("2d");
-    const years = Object.keys(data.yearly_stats).sort();
+    const years = fullYearRange(data);
 
     if (years.length === 0) {
         ctx.font = "14px Inter";
@@ -1358,7 +1559,7 @@ function renderYearlyChart(data) {
                 x: {
                     stacked: true,
                     grid: { display: false },
-                    ticks: { font: { size: 11 } },
+                    ticks: { font: { size: 11 }, autoSkip: false, maxRotation: 45, minRotation: 45 },
                 },
                 y: {
                     stacked: true,
@@ -1775,6 +1976,14 @@ function parseArgDate(dateStr) {
     if (btnDownloadAlignment) btnDownloadAlignment.addEventListener("click", downloadAlignmentImage);
     const btnShareAlignment = document.getElementById("btn-share-alignment-tw");
     if (btnShareAlignment) btnShareAlignment.addEventListener("click", shareTwitter);
+
+    // Wire yearly chart image buttons
+    const btnCopyYearly = document.getElementById("btn-copy-yearly");
+    if (btnCopyYearly) btnCopyYearly.addEventListener("click", copyYearlyImage);
+    const btnDownloadYearly = document.getElementById("btn-download-yearly");
+    if (btnDownloadYearly) btnDownloadYearly.addEventListener("click", downloadYearlyImage);
+    const btnShareYearly = document.getElementById("btn-share-yearly-tw");
+    if (btnShareYearly) btnShareYearly.addEventListener("click", shareTwitter);
 
     // Wire vote popup close handlers
     const popupOverlay = document.getElementById("vote-popup-overlay");
