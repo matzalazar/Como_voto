@@ -577,6 +577,22 @@ def extract_year(date_str: str) -> int | None:
     return None
 
 
+def practical_year_range(years_list: list[str]) -> tuple[str | None, str | None]:
+    """Return (min_year, max_year) ignoring isolated early outliers.
+
+    If the earliest year has a gap > 10 years before the next year (e.g.
+    a single 1983 vote before continuous coverage starting in 2005) the
+    isolated year is skipped so the display range is more accurate.
+    """
+    if not years_list:
+        return None, None
+    ints = sorted(int(y) for y in years_list)
+    start = ints[0]
+    if len(ints) > 1 and (ints[1] - ints[0]) > 10:
+        start = ints[1]
+    return str(start), str(ints[-1])
+
+
 # ---------------------------------------------------------------------------
 # Processing
 # ---------------------------------------------------------------------------
@@ -697,6 +713,44 @@ def normalize_name(name: str) -> str:
     return name
 
 
+# ---------------------------------------------------------------------------
+# Name alias map: normalized alias → normalized canonical name.
+# Used to merge duplicate legislator records that arise from the same person
+# being recorded under slightly different name variants across sources/time.
+# Keys and values are in normalize_name() form (stripped accents, uppercase).
+# ---------------------------------------------------------------------------
+NAME_ALIASES: dict[str, str] = {
+    # Typos in source data
+    "AGUNDEZ, JORGE ALFRESO":              "AGUNDEZ, JORGE ALFREDO",
+    "LOPEZ, JUAN CARLOS.":                 "LOPEZ, JUAN CARLOS",
+    # Short / abbreviated name → full name (same person, different sources)
+    "AGUIRRE, HILDA":                      "AGUIRRE, HILDA CLELIA",
+    "ALONSO, LAURA":                       "ALONSO, LAURA VALERIA",
+    "AVELIN DE GINESTAR, NANCY B.":        "AVELIN DE GINESTAR, NANCY",
+    "BASUALDO, ROBERTO":                   "BASUALDO, ROBERTO GUSTAVO",
+    "COBOS, JULIO":                        "COBOS, JULIO CESAR CLETO",
+    "CORNEJO, ALFREDO":                    "CORNEJO, ALFREDO VICTOR",
+    "FELLNER, LILIANA":                    "FELLNER, LILIANA BEATRIZ",
+    "FERNANDEZ DE KIRCHNER, CRISTINA E.":  "FERNANDEZ DE KIRCHNER, CRISTINA",
+    "FILMUS, DANIEL":                      "FILMUS, DANIEL FERNANDO",
+    "GOMEZ, JOSE":                         "GOMEZ, JOSE ERNESTO",
+    "GONZALEZ, PABLO G.":                  "GONZALEZ, PABLO GERARDO",
+    "MARINO, JUAN":                        "MARINO, JUAN CARLOS",
+    "MARQUEZ, NADIA":                      "MARQUEZ, NADIA JUDITH",
+    "MARTINEZ, ALFREDO":                   "MARTINEZ, ALFREDO ANSELMO",
+    "MENEM, EDUARDO":                      "MENEM, EDUARDO ADRIAN",
+    "MIRABELLA, ROBERTO":                  "MIRABELLA, ROBERTO MARIO",
+    "MONTENEGRO, GUILLERMO":               "MONTENEGRO, GUILLERMO TRISTAN",
+    "PARRILLI, OSCAR ISIDRO":              "PARRILLI, OSCAR ISIDRO JOSE",
+    "RITONDO, CRISTIAN A.":                "RITONDO, CRISTIAN",
+    "SANTILLI, DIEGO":                     "SANTILLI, DIEGO CESAR",
+    "SNOPEK, GUILLERMO":                   "SNOPEK, GUILLERMO EUGENIO MARIO",
+    "SORIA, MARTIN":                       "SORIA, MARTIN IGNACIO",
+    "TAIANA, JORGE":                       "TAIANA, JORGE ENRIQUE",
+    "TERRAGNO, RODOLFO":                   "TERRAGNO, RODOLFO HECTOR",
+}
+
+
 def load_photo_maps() -> dict[str, str]:
     """Load photo name->filename mappings from scraper output.
     Returns a dict: normalized_name -> relative path (fotos/filename).
@@ -742,6 +796,11 @@ def load_photo_maps() -> dict[str, str]:
                 if nk not in photo_map:
                     photo_map[nk] = filename
 
+    # Propagate photos across aliases: if the canonical key has no photo but
+    # its alias does (or vice-versa), copy it over so merged records get a photo.
+    for alias_key, canon_key in NAME_ALIASES.items():
+        if canon_key not in photo_map and alias_key in photo_map:
+            photo_map[canon_key] = photo_map[alias_key]
 
     return photo_map
 
@@ -836,6 +895,7 @@ def build_legislator_data(
                 continue
 
             name_key = normalize_name(name)
+            name_key = NAME_ALIASES.get(name_key, name_key)  # resolve alias → canonical
 
             if name_key not in legislators:
                 legislators[name_key] = {
@@ -860,6 +920,10 @@ def build_legislator_data(
                 }
 
             leg = legislators[name_key]
+            # Prefer the canonical name as display name over an alias variant
+            if normalize_name(name) == name_key:
+                leg["name"] = name
+                leg["name_key"] = name_key
 
             if chamber not in leg["chambers"]:
                 leg["chambers"].append(chamber)
@@ -1448,6 +1512,16 @@ def generate_site_data(legislators: dict, law_groups: dict):
             yr for leg in legislators.values()
             for yr in leg["yearly_stats"].keys()
         )),
+        "years_diputados": list(practical_year_range(sorted(set(
+            str(extract_year(v["date"]))
+            for v in votaciones_summary["diputados"]
+            if v.get("date") and extract_year(v["date"])
+        )))),
+        "years_senadores": list(practical_year_range(sorted(set(
+            str(extract_year(v["date"]))
+            for v in votaciones_summary["senadores"]
+            if v.get("date") and extract_year(v["date"])
+        )))),
         "total_laws": len(law_groups),
     }
     save_json(DOCS_DATA_DIR / "stats.json", stats)

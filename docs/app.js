@@ -1608,8 +1608,13 @@ function parseArgDate(dateStr) {
             if (legsEl) legsEl.textContent = stats.total_legislators ?? "-";
             const totalVot = (stats.total_votaciones_diputados || 0) + (stats.total_votaciones_senadores || 0);
             if (votEl) votEl.textContent = totalVot || "-";
-            const years = stats.years_covered || [];
-            if (yrsEl) yrsEl.textContent = years.length ? `${years[0]}–${years[years.length - 1]}` : "-";
+            const dipYears = stats.years_diputados || [];
+            const senYears = stats.years_senadores || [];
+            if (yrsEl) {
+                const dipStr = dipYears.length ? `${dipYears[0]}\u2013${dipYears[dipYears.length - 1]}` : "-";
+                const senStr = senYears.length ? `${senYears[0]}\u2013${senYears[senYears.length - 1]}` : "-";
+                yrsEl.innerHTML = `<small style="font-size:0.72em;line-height:1.5;display:block">Dip.&nbsp;${dipStr}<br>Sen.&nbsp;${senStr}</small>`;
+            }
             if (updEl) updEl.textContent = stats.last_updated ? new Date(stats.last_updated).toLocaleString("es-AR", { hour12: false }) : "-";
         } else {
             console.warn("Could not load stats.json", sresp.status);
