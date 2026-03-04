@@ -898,7 +898,7 @@ def build_legislator_data(
 
         # Exclude procedural votes
         title_low = title.lower() if title else ""
-        if "moción de orden" in title_low or "mocion de orden" in title_low or "pedido de licencia" in title_low:
+        if "moción de orden" in title_low or "moción del diputado" in title_low or "mocion de orden" in title_low or "pedido de licencia" in title_low or "pedido de pref" in title_low or "apartamiento del reglamento solicitado" in title_low or "pedido tratamiento sobre tablas" in title_low:
             contested = False
         else:
             contested = is_contested(year, pj_majority, opp_majority)

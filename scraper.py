@@ -45,17 +45,158 @@ SENADO_BASE = "https://www.senado.gob.ar"
 # Rate-limiting: seconds between requests
 REQUEST_DELAY = 0.3
 
-# HCDN votacion IDs: check every single ID from 1 to this value (inclusive).
-# Known range covers up to 5881 as of Feb 2026. We add margin.
-HCDN_MAX_ID = 6500
-
 # Some HCDN IDs return 500 from the plain /votacion/{id} URL but work with a
 # slug prefix.  Map id -> full URL path (slug + id) for those cases.
+# These are manually confirmed; the scraper also auto-discovers slugs at runtime.
 HCDN_SLUG_OVERRIDES: dict[str, str] = {
     "393": f"{HCDN_BASE}/votacion/derecho-identidad-genero-general/393",
     "394": f"{HCDN_BASE}/votacion/derecho-identidad-genero-articulo-5/394",
     "395": f"{HCDN_BASE}/votacion/derecho-identidad-genero-articulo-11/395",
 }
+
+# Spanish stop-words stripped when building slug candidates from expedition titles
+_SLUG_STOP_WORDS = {
+    "a", "al", "de", "del", "la", "las", "el", "los", "en", "con",
+    "por", "sobre", "para", "y", "o", "e", "que", "se", "un", "una",
+    "unos", "unas", "su", "sus", "lo", "le", "les", "nos",
+}
+
+
+def _slugify(text: str, max_words: int = 4) -> str:
+    """Convert a Spanish law title into an HCDN-style URL slug.
+
+    - Strip text after the first ':' (description/modifier part)
+    - Normalize Unicode → ASCII
+    - Remove stop words and short tokens
+    - Join first *max_words* significant words with hyphens
+    """
+    import unicodedata as _ud
+    # Only use the part before a colon (law name, not description)
+    text = text.split(":")[0]
+    text = _ud.normalize("NFKD", text.lower()).encode("ascii", "ignore").decode("ascii")
+    text = re.sub(r"[^a-z0-9\s]", " ", text)
+    words = [w for w in text.split() if w and w not in _SLUG_STOP_WORDS and len(w) > 1]
+    return "-".join(words[:max_words])
+
+
+# Cache for the id→slug map built from HCDN year-based search pages.
+# Populated lazily on first call to _get_slug_map().
+_SLUG_MAP: dict[str, str] | None = None
+
+
+def _fetch_hcdn_slug_map() -> dict[str, str]:
+    """Scrape /votaciones/search for every year to build a complete id→slug map.
+
+    The HCDN search page embeds  redirectActa(id, hasVote, 'slug')  in every
+    row's onclick.  Older sessions (≈ 2008-2019) require a slug prefix in the
+    URL; newer ones have an empty slug and work with the bare /votacion/{id}
+    path.  We record both so callers can distinguish the two cases.
+
+    Returns: dict mapping str(id) -> slug string (empty string = bare URL).
+    """
+    slug_map: dict[str, str] = {}
+    current_year = datetime.now().year
+    for year in range(1993, current_year + 1):
+        try:
+            resp = SESSION.post(
+                f"{HCDN_BASE}/votaciones/search",
+                data={"txtSearch": "", "anoSearch": str(year)},
+                timeout=20,
+            )
+            matches = re.findall(
+                r"redirectActa\((\d+),(\d+),'([^']*)'\)", resp.text
+            )
+            for vid, _, slug in matches:
+                slug_map[vid] = slug
+            log.info(f"  Slug map: {year}: {len(matches)} rows")
+        except Exception as exc:
+            log.warning(f"  Slug map: {year} failed: {exc}")
+        time.sleep(REQUEST_DELAY)
+    with_slug = sum(1 for v in slug_map.values() if v)
+    log.info(
+        f"Slug map ready: {len(slug_map)} IDs total, {with_slug} require slug URLs"
+    )
+    return slug_map
+
+
+def _get_slug_map() -> dict[str, str]:
+    """Return the cached id→slug map, building it on the first call."""
+    global _SLUG_MAP
+    if _SLUG_MAP is None:
+        log.info("Building HCDN slug map from search pages (one-time) ...")
+        _SLUG_MAP = _fetch_hcdn_slug_map()
+    return _SLUG_MAP
+
+
+def _find_slug_url(votacion_id: str) -> str | None:
+    """Return the correct URL for an HCDN vote ID that returns HTTP 500.
+
+    Strategy:
+    1. Look up the pre-built slug map (populated from /votaciones/search pages).
+       - If the ID is in the map with a non-empty slug → return slug URL.
+       - If the ID is in the map with an empty slug → bare URL should work;
+         return None so the caller gives up (avoids redundant network calls).
+    2. For IDs not yet in the map (very new sessions scraped before the map was
+       refreshed), fall back to the ajax/expedientes title-guessing approach.
+    """
+    slug_map = _get_slug_map()
+
+    if votacion_id in slug_map:
+        slug = slug_map[votacion_id]
+        if slug:
+            url = f"{HCDN_BASE}/votacion/{slug}/{votacion_id}"
+            log.info(f"  [{votacion_id}] Slug URL from map: {url}")
+            return url
+        # Empty slug → the site says bare URL should work; nothing more to try.
+        return None
+
+    # ── Fallback: ID not in map (very recent or edge case) ──────────────────
+    # Use ajax/expedientes to get the title, then guess the slug.
+    log.debug(f"  [{votacion_id}] Not in slug map; trying ajax/expedientes")
+    try:
+        r = SESSION.post(
+            f"{HCDN_BASE}/ajax/expedientes",
+            data={"id-acta": votacion_id, "texto": ""},
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return None
+        payload = r.json()
+    except Exception:
+        return None
+
+    if not payload.get("success") or not payload.get("expedientes"):
+        return None  # ID genuinely doesn't exist
+
+    title = payload["expedientes"][0].get("titulo", "")
+    if not title:
+        return None
+
+    bases = []
+    for nw in (3, 4):
+        b = _slugify(title, max_words=nw)
+        if b and b not in bases:
+            bases.append(b)
+
+    vote_suffixes = [
+        "", "general", "particular", "en-general", "en-particular",
+    ] + [f"articulo-{n}" for n in range(1, 21)]
+
+    for base in bases:
+        for suffix in vote_suffixes:
+            slug = f"{base}-{suffix}" if suffix else base
+            url = f"{HCDN_BASE}/votacion/{slug}/{votacion_id}"
+            try:
+                resp = SESSION.get(url, timeout=8)
+                if resp.status_code == 200 and "¿CÓMO VOTÓ?" in resp.text:
+                    log.info(f"  [{votacion_id}] Discovered slug URL: {url}")
+                    return url
+            except Exception:
+                pass
+            time.sleep(REQUEST_DELAY)
+
+    log.warning(f"  [{votacion_id}] Could not find slug URL (title: {title[:60]})")
+    return None
 
 # Senado periods to scrape
 # Available on website: 2005 onwards (earlier years have no digital records)
@@ -367,23 +508,13 @@ def download_photo(url: str, filename: str) -> bool:
 #  DIPUTADOS SCRAPER
 # ===========================================================================
 
-def scrape_hcdn_votacion(votacion_id: str) -> dict | None:
-    """Scrape a single HCDN votacion detail page.
+def _parse_hcdn_page(resp: requests.Response, votacion_id: str, url: str) -> dict | None:
+    """Parse an already-fetched HCDN votacion page into a data dict.
 
-    Returns the data dict (raw format) or None if the page doesn't exist
-    or has no voting data.
+    Returns the dict, or None if the page has no voting content.
     """
-    url = HCDN_SLUG_OVERRIDES.get(votacion_id, f"{HCDN_BASE}/votacion/{votacion_id}")
-    resp = fetch(url, delay=REQUEST_DELAY, raise_for_status=False)
-    if resp is None or resp.status_code != 200:
-        # Fall back to slug override if plain URL failed (500/417)
-        if votacion_id not in HCDN_SLUG_OVERRIDES:
-            return None
-        # Already tried the override above; nothing more to do
-        return None
     soup = BeautifulSoup(resp.text, "lxml")
 
-    # Check if page has actual voting content
     if not soup.find(string=re.compile("¿CÓMO VOTÓ?")):
         return None
 
@@ -403,20 +534,18 @@ def scrape_hcdn_votacion(votacion_id: str) -> dict | None:
         "votes": [],
     }
 
-    # Title - in h4 element, may include date appended
+    # Title — h4 element, may include date appended
     title_el = soup.find("h4")
     if title_el:
         raw_title = title_el.get_text(strip=True)
-        date_match = re.search(
-            r"(\d{2}/\d{2}/\d{4}\s*-?\s*\d{2}:\d{2})", raw_title
-        )
+        date_match = re.search(r"(\d{2}/\d{2}/\d{4}\s*-?\s*\d{2}:\d{2})", raw_title)
         if date_match:
             result["date"] = date_match.group(1).strip()
             result["title"] = raw_title[:date_match.start()].strip()
         else:
             result["title"] = raw_title
 
-    # Period info
+    # Period
     period_el = soup.find("h5", string=re.compile(r"Período"))
     if period_el:
         result["period"] = period_el.get_text(strip=True)
@@ -430,15 +559,13 @@ def scrape_hcdn_votacion(votacion_id: str) -> dict | None:
                 result["date"] = text
                 break
 
-    # Result (AFIRMATIVO/NEGATIVO)
+    # Overall result (AFIRMATIVO / NEGATIVO)
     result_h3 = soup.find("h3")
     if result_h3:
         result["result"] = result_h3.get_text(strip=True)
 
     # Vote counts
-    count_sections = soup.find_all("h3")
-    labels = soup.find_all("h4")
-    for h3, h4 in zip(count_sections, labels):
+    for h3, h4 in zip(soup.find_all("h3"), soup.find_all("h4")):
         try:
             count = int(h3.get_text(strip=True))
             label = h4.get_text(strip=True).upper()
@@ -456,23 +583,19 @@ def scrape_hcdn_votacion(votacion_id: str) -> dict | None:
     # Individual votes from the table
     table = soup.find("table")
     if table:
-        rows = table.find_all("tr")
-        for row in rows:
+        for row in table.find_all("tr"):
             cells = row.find_all("td")
             if len(cells) >= 5:
-                # Cell 0 = photo — extract photo ID for later download
                 photo_id = ""
                 photo_link = cells[0].find("a", href=True)
                 if photo_link:
                     photo_id = photo_link["href"].rstrip("/").split("/")[-1]
-
-                name = cells[1].get_text(strip=True)
-                bloc = cells[2].get_text(strip=True)
+                name     = cells[1].get_text(strip=True)
+                bloc     = cells[2].get_text(strip=True)
                 province = cells[3].get_text(strip=True)
-                vote = cells[4].get_text(strip=True)
-
+                vote     = cells[4].get_text(strip=True)
                 if name and vote:
-                    vote_entry = {
+                    entry = {
                         "name": name,
                         "bloc": bloc,
                         "province": province,
@@ -480,20 +603,47 @@ def scrape_hcdn_votacion(votacion_id: str) -> dict | None:
                         "coalition": classify_bloc(bloc),
                     }
                     if photo_id:
-                        vote_entry["photo_id"] = photo_id
-                    result["votes"].append(vote_entry)
+                        entry["photo_id"] = photo_id
+                    result["votes"].append(entry)
 
     return result
+
+
+def scrape_hcdn_votacion(votacion_id: str) -> dict | None:
+    """Fetch + parse a single HCDN votacion page (used for Phase 2 / new IDs).
+
+    Resolves slug URLs automatically via the slug map or ajax/expedientes.
+    Returns the data dict or None if the vote doesn't exist / has no data.
+    """
+    url = HCDN_SLUG_OVERRIDES.get(votacion_id, f"{HCDN_BASE}/votacion/{votacion_id}")
+    resp = fetch(url, delay=REQUEST_DELAY, raise_for_status=False)
+    if resp is None or resp.status_code != 200:
+        if resp is not None and resp.status_code == 417:
+            return None  # Genuinely absent
+        if votacion_id not in HCDN_SLUG_OVERRIDES:
+            slug_url = _find_slug_url(votacion_id)
+            if slug_url:
+                resp = fetch(slug_url, delay=REQUEST_DELAY, raise_for_status=False)
+                if resp is None or resp.status_code != 200:
+                    return None
+                url = slug_url
+            else:
+                return None
+        else:
+            return None
+    return _parse_hcdn_page(resp, votacion_id, url)
 
 
 def scrape_diputados():
     """Scrape all Diputados votaciones.
 
-    Iterates every ID from 1 to HCDN_MAX_ID — no early exit.
-    Skips IDs already in the consolidated database.
+    Builds a complete id→slug map from the HCDN year-based search pages (all
+    years 1993–present), then iterates only the IDs the site actually knows
+    about.  IDs already in the local DB are skipped without any HTTP request.
+    The correct URL (slug-prefixed or bare) is taken directly from the map.
     """
     log.info("=" * 60)
-    log.info("SCRAPING DIPUTADOS (IDs 1 to %d)", HCDN_MAX_ID)
+    log.info("SCRAPING DIPUTADOS")
     log.info("=" * 60)
 
     db = ConsolidatedDB(DATA_DIR / "diputados.json")
@@ -501,34 +651,44 @@ def scrape_diputados():
     log.info(f"Existing DB: {len(db.votaciones)} votaciones, "
              f"{len(db.names)} names")
 
-    new_count = 0
-    checked = 0
+    # Build the slug map once (≈8 s, cached for the rest of the run)
+    slug_map = _get_slug_map()
 
-    for vid_int in range(1, HCDN_MAX_ID + 1):
+    new_count = 0
+    checked   = 0
+
+    log.info(f"Iterating {len(slug_map)} known IDs from slug map")
+    for vid_int in sorted(int(k) for k in slug_map):
         vid = str(vid_int)
 
-        # Skip if already in database
+        # Already have it locally — no HTTP needed
         if db.has_votacion(vid):
             continue
 
         checked += 1
-        data = scrape_hcdn_votacion(vid)
 
+        # Build URL directly from the map; no probe request required
+        slug = slug_map[vid]
+        if slug:
+            url = f"{HCDN_BASE}/votacion/{slug}/{vid}"
+        else:
+            url = f"{HCDN_BASE}/votacion/{vid}"
+
+        resp = fetch(url, delay=REQUEST_DELAY, raise_for_status=False)
+        if resp is None or resp.status_code != 200:
+            continue
+
+        data = _parse_hcdn_page(resp, vid, url)
         if data and data.get("votes"):
             db.add_votacion(data)
             new_count += 1
-
             if new_count % 50 == 0:
                 db.save()
-                log.info(f"  Checkpoint: saved {new_count} new "
-                         f"(ID {vid}, checked {checked})")
+                log.info(f"  Checkpoint: saved {new_count} new (ID {vid})")
+            log.info(f"  [{vid}] {data.get('title','')[:80]}")
 
-            log.info(f"  [{vid}] Saved: {data.get('title', '')[:80]}")
-
-        # Log progress periodically
-        if checked % 500 == 0:
-            log.info(f"  Progress: checked {checked}, saved {new_count} new, "
-                     f"at ID {vid_int}")
+        if checked % 200 == 0:
+            log.info(f"  Progress: checked {checked}, saved {new_count}")
 
     db.save()
     log.info(f"Diputados: scraped {new_count} new votaciones "
