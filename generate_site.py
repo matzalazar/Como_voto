@@ -1023,6 +1023,7 @@ def build_legislator_data(
                 "tp": vtype,
                 "gk": group_key,
                 "ln": law_display_name[:120] if law_display_name else "",
+                "cn": group_data.get("common_name", ""),
                 "al": article_label,
             }
             # include link to original source when available
@@ -1559,7 +1560,10 @@ def generate_site_data(legislators: dict, law_groups: dict):
             # Include the year so that recurring laws (Presupuesto, Consenso
             # Fiscal, etc.) produce one waffle row per year instead of a single
             # row merging all years together.
-            common_name = get_common_name(ln) if ln else None
+            # Use the pre-computed 'cn' field first (avoids re-deriving via
+            # keyword matching, which fails for short names like "Presupuesto"
+            # that don't self-match their own keywords).
+            common_name = vote.get("cn") or (get_common_name(ln) if ln else None)
             if common_name:
                 yr = vote.get("yr", "")
                 merge_key = f"COMMON|{common_name}|{yr}" if yr else f"COMMON|{common_name}"

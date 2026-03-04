@@ -599,6 +599,14 @@ async function loadLegislatorDetail(nameKey, urlParams) {
 
     currentLegKey = nameKey;
 
+    // Update URL so the page can be bookmarked / shared.
+    // Only push a new state when the URL doesn't already point to this legislator.
+    const currentLegInURL = new URLSearchParams(window.location.search).get("leg");
+    if (currentLegInURL !== nameKey) {
+        const shareParams = new URLSearchParams({ leg: nameKey });
+        history.pushState({ leg: nameKey }, "", `?${shareParams}`);
+    }
+
     const detailSection = document.getElementById("legislator-detail");
     detailSection.classList.remove("hidden");
     document.querySelector(".search-section").classList.add("hidden");
@@ -675,6 +683,8 @@ function cleanupLegislatorDetail() {
     document.getElementById("leg-alignment-summary").innerHTML = "";
     const _infoCard = document.getElementById("leg-info-card");
     if (_infoCard) _infoCard.style.display = "none";
+    const _alignCard = document.getElementById("leg-alignment-card");
+    if (_alignCard) _alignCard.style.display = "none";
     const _statsInline = document.getElementById("leg-stats-inline");
     if (_statsInline) _statsInline.style.display = "none";
     document.getElementById("waffle-card-name").innerHTML = "";
@@ -734,7 +744,9 @@ function renderLegislatorDetail(data) {
     document.getElementById("leg-province").textContent = data.province;
 
     // Alignment summary — 3-column era grid (1993–2014 / 2015–2023 / 2024–2026)
+    // Rendered into the standalone card below the Mandatos card.
     const alignSummary = document.getElementById("leg-alignment-summary");
+    const alignCard    = document.getElementById("leg-alignment-card");
     alignSummary.innerHTML = "";
 
     const ERA_DEFS = [
@@ -747,6 +759,14 @@ function renderLegislatorDetail(data) {
     ];
 
     const eraAl = data.era_alignment || {};
+    // Only show the card if at least one era has data
+    const hasAnyEraData = ERA_DEFS.some(era => {
+        const ed = eraAl[era.key] || {};
+        return ed["PJ"] !== null && ed["PJ"] !== undefined
+            || ed[era.opp.key] !== null && ed[era.opp.key] !== undefined;
+    });
+    if (alignCard) alignCard.style.display = hasAnyEraData ? "block" : "none";
+
     const gridEl = document.createElement("div");
     gridEl.className = "alignment-grid-3col";
     for (const era of ERA_DEFS) {
@@ -1326,7 +1346,7 @@ async function exportLegHeaderCard(btnId, mode) {
                 </div>
             </div>
         </div>
-        <div class="lhe-alignment-title">Alineamiento con coaliciones</div>
+        <div class="lhe-alignment-title">Alineamiento Político en Votaciones Divididas</div>
         <div class="lhe-alignment-grid alignment-grid-3col">${alignGridCols}</div>`;
 
     card.style.display = "block";
@@ -1475,6 +1495,94 @@ async function exportInfoCard(btnId, mode) {
 }
 async function copyInfoCardImage()     { await exportInfoCard("btn-copy-info-card",     "copy"); }
 async function downloadInfoCardImage() { await exportInfoCard("btn-download-info-card", "download"); }
+
+// ── Alignment era card (Alineamiento Político) ───────────────────────
+async function exportAlignmentEraCard(btnId, mode) {
+    if (!currentDetail) return;
+    const btn       = document.getElementById(btnId);
+    const card      = document.getElementById("alignment-era-export-card");
+    const headerEl  = document.getElementById("alignment-era-export-header");
+    const contentEl = document.getElementById("alignment-era-export-content");
+    const originalText = btn.innerHTML;
+
+    const d = currentDetail;
+    const chambers = d.chambers || [d.chamber];
+    const chamberLabel = chambers.length > 1
+        ? "Dip. + Sen."
+        : chambers[0] === "diputados" ? "Diputado/a" : "Senador/a";
+    const photoHtml = d.photo
+        ? `<img src="${d.photo}" class="aec-photo" alt="" crossorigin="anonymous">`
+        : `<div class="aec-photo-placeholder"></div>`;
+    headerEl.innerHTML = `
+        <div class="aec-header-inner">
+            ${photoHtml}
+            <div class="aec-info">
+                <div class="aec-name">${d.name}</div>
+                <div class="aec-meta">${chamberLabel}&ensp;&middot;&ensp;${shortPartyName(d.bloc)}&ensp;&middot;&ensp;${d.province}</div>
+            </div>
+        </div>`;
+
+    // Clone the live alignment summary content into the export card
+    const liveContent = document.getElementById("leg-alignment-summary");
+    contentEl.innerHTML = "";
+    if (liveContent) contentEl.appendChild(liveContent.cloneNode(true));
+
+    card.style.display = "block";
+    void card.offsetHeight;
+
+    btn.innerHTML = "⏳ Generando...";
+    btn.disabled  = true;
+
+    const mobile = isMobile();
+
+    function triggerDl(blob) {
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement("a");
+        a.href     = url;
+        a.download = `como_voto_alineamiento_coaliciones.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    try {
+        const photoImg = headerEl.querySelector("img.aec-photo");
+        if (photoImg && !photoImg.complete) {
+            await new Promise((res) => { photoImg.onload = res; photoImg.onerror = res; });
+        }
+        const canvas = await html2canvas(card, {
+            backgroundColor: "#ffffff", scale: 3, useCORS: true, logging: false,
+        });
+        const blob = await new Promise((res, rej) =>
+            canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
+
+        if (mode === "download") {
+            triggerDl(blob);
+            btn.innerHTML = "✓ Descargado!";
+        } else {
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+                btn.innerHTML = "✓ Copiado!";
+            } catch (e) {
+                if (mobile) {
+                    triggerDl(blob);
+                    btn.innerHTML = "✓ Descargado!";
+                } else {
+                    console.error("Clipboard write failed:", e);
+                    btn.innerHTML = "Error al copiar";
+                }
+            }
+        }
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+    } catch (err) {
+        console.error("Error exporting alignment era card:", err);
+        btn.innerHTML = "Error :(";
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+    } finally {
+        card.style.display = "none";
+    }
+}
+async function copyAlignmentEraImage()     { await exportAlignmentEraCard("btn-copy-alignment-era",     "copy"); }
+async function downloadAlignmentEraImage() { await exportAlignmentEraCard("btn-download-alignment-era", "download"); }
 
 // ── Alignment chart card ────────────────────────────────────────────────────
 // We can't simply resize the live chart-card: Chart.js renders onto a canvas
@@ -2381,6 +2489,20 @@ function parseArgDate(dateStr) {
     // Populate initial small search result if desired (empty/hidden)
     hideSearchResults();
 
+    // Handle browser back/forward navigation
+    window.addEventListener("popstate", (e) => {
+        const p = new URLSearchParams(window.location.search);
+        const key = p.get("leg");
+        if (key) {
+            loadLegislatorDetail(key, {
+                wy: p.get("wy") || "",
+                wq: p.get("wq") || "",
+            });
+        } else {
+            showSearchView();
+        }
+    });
+
     // Deep-link: if URL contains ?leg=KEY, auto-load that legislator
     const urlParams = new URLSearchParams(window.location.search);
     const legParam = urlParams.get("leg");
@@ -2394,7 +2516,7 @@ function parseArgDate(dateStr) {
 
     // Stamp today's date on all export card footers once at load time
     const _exportDateStr = new Date().toISOString().slice(0, 10);
-    ["lhe-export-date", "align-export-date", "yearly-export-date", "info-export-date"].forEach((id) => {
+    ["lhe-export-date", "align-export-date", "yearly-export-date", "info-export-date", "alignment-era-export-date"].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.textContent = _exportDateStr;
     });
@@ -2413,6 +2535,14 @@ function parseArgDate(dateStr) {
     if (btnDownloadLegHeader) btnDownloadLegHeader.addEventListener("click", downloadLegHeaderImage);
     const btnShareLegHeader = document.getElementById("btn-share-leg-header-tw");
     if (btnShareLegHeader) btnShareLegHeader.addEventListener("click", shareTwitter);
+
+    // Wire alignment era card (Alineamiento Político) image buttons
+    const btnCopyAlignmentEra = document.getElementById("btn-copy-alignment-era");
+    if (btnCopyAlignmentEra) btnCopyAlignmentEra.addEventListener("click", copyAlignmentEraImage);
+    const btnDownloadAlignmentEra = document.getElementById("btn-download-alignment-era");
+    if (btnDownloadAlignmentEra) btnDownloadAlignmentEra.addEventListener("click", downloadAlignmentEraImage);
+    const btnShareAlignmentEra = document.getElementById("btn-share-alignment-era-tw");
+    if (btnShareAlignmentEra) btnShareAlignmentEra.addEventListener("click", shareTwitter);
 
     // Wire info card (presentismo + mandatos) image buttons
     const btnCopyInfoCard = document.getElementById("btn-copy-info-card");

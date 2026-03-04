@@ -403,26 +403,11 @@ body {
     flex-wrap: wrap;
 }
 
-.leg-alignment-right {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    align-items: flex-end;
-}
-
-.leg-alignment-title {
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--color-text-secondary);
-    align-self: flex-start;
-}
-
 .leg-alignment-summary {
     display: flex;
     gap: 1.5rem;
     flex-wrap: wrap;
+    justify-content: center;
 }
 
 .alignment-card {
@@ -1982,7 +1967,7 @@ body {
 
     .leg-alignment-summary {
         width: 100%;
-        justify-content: space-around;
+        justify-content: flex-start;
     }
 
     .waffle-section,
