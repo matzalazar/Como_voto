@@ -739,7 +739,6 @@ NAME_ALIASES: dict[str, str] = {
     "LOPEZ, JUAN CARLOS.":                 "LOPEZ, JUAN CARLOS",
     # Short / abbreviated name → full name (same person, different sources)
     "AGUIRRE, HILDA":                      "AGUIRRE, HILDA CLELIA",
-    "ALONSO, LAURA":                       "ALONSO, LAURA VALERIA",
     "AVELIN DE GINESTAR, NANCY B.":        "AVELIN DE GINESTAR, NANCY",
     "BASUALDO, ROBERTO":                   "BASUALDO, ROBERTO GUSTAVO",
     "COBOS, JULIO":                        "COBOS, JULIO CESAR CLETO",
