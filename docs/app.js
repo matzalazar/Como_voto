@@ -468,6 +468,9 @@ function renderVoterList(listEl, detail, party, voteIdx) {
         <button class="voter-close" onclick="this.closest('.law-voter-list').style.display='none'" title="Cerrar">✕</button>
     </div>`;
 
+    // Build lookup set from loaded index so we can link known legislators
+    const knownKeys = new Set(legislatorsData.map(l => l.k));
+
     // Body
     html += `<div class="voter-body">`;
     for (const g of groups) {
@@ -475,7 +478,11 @@ function renderVoterList(listEl, detail, party, voteIdx) {
             html += `<div class="voter-group-header" data-party="${g.pk}">${escapeHtml(g.label)} <span class="voter-group-count">(${g.names.length})</span></div>`;
         }
         for (const name of g.names) {
-            html += `<div class="voter-item ${voteCls}">${escapeHtml(name)}</div>`;
+            if (knownKeys.has(name)) {
+                html += `<div class="voter-item ${voteCls}"><a class="voter-link" href="#" data-key="${escapeAttr(name)}">${escapeHtml(name)}</a></div>`;
+            } else {
+                html += `<div class="voter-item ${voteCls}">${escapeHtml(name)}</div>`;
+            }
         }
     }
     html += `</div>`;
@@ -487,6 +494,12 @@ function renderVoterList(listEl, detail, party, voteIdx) {
 document.addEventListener("click", function (e) {
     if (e.target.closest(".law-bar-seg")) {
         onBarSegmentClick(e);
+    }
+    // Voter name → legislator detail
+    const voterLink = e.target.closest(".voter-link");
+    if (voterLink) {
+        e.preventDefault();
+        loadLegislatorDetail(voterLink.dataset.key);
     }
 });
 
