@@ -733,27 +733,43 @@ function renderLegislatorDetail(data) {
 
     document.getElementById("leg-province").textContent = data.province;
 
-    // Alignment summary cards
+    // Alignment summary — 3-column era grid (1993–2014 / 2015–2023 / 2024–2026)
     const alignSummary = document.getElementById("leg-alignment-summary");
     alignSummary.innerHTML = "";
 
-    const coalitions = [
-        { key: "PJ",  label: "PJ / UxP / FdT",   cls: "alignment-pj"  },
-        { key: "UCR", label: "UCR / ARI",          cls: "alignment-ucr" },
-        { key: "PRO", label: "JxC / PRO / UCR",    cls: "alignment-pro" },
-        { key: "LLA", label: "LLA / PRO",           cls: "alignment-lla" },
+    const ERA_DEFS = [
+        { label: "1993–2014", key: "1993-2014",
+          opp: { key: "UCR", label: "UCR / ARI",       cls: "alignment-ucr" } },
+        { label: "2015–2023", key: "2015-2023",
+          opp: { key: "PRO", label: "JxC / PRO / UCR", cls: "alignment-pro" } },
+        { label: "2024–2026", key: "2024-2026",
+          opp: { key: "LLA", label: "LLA / PRO",        cls: "alignment-lla" } },
     ];
 
-    for (const c of coalitions) {
-        const val = data.alignment[c.key];
-        const card = document.createElement("div");
-        card.className = `alignment-card ${c.cls}`;
-        card.innerHTML = `
-            <div class="alignment-label">${c.label}</div>
-            <div class="alignment-value">${val !== null ? val + "%" : "N/A"}</div>
+    const eraAl = data.era_alignment || {};
+    const gridEl = document.createElement("div");
+    gridEl.className = "alignment-grid-3col";
+    for (const era of ERA_DEFS) {
+        const eraData = eraAl[era.key] || {};
+        const pjPct  = eraData["PJ"]  ?? null;
+        const oppPct = eraData[era.opp.key] ?? null;
+        const fmt    = v => v !== null ? v + "%" : "N/A";
+        const col    = document.createElement("div");
+        col.className = "alignment-era-col";
+        col.innerHTML = `
+            <div class="alignment-era-label">${era.label}</div>
+            <div class="alignment-card alignment-pj">
+                <div class="alignment-label">PJ / FdT / UxP</div>
+                <div class="alignment-value">${fmt(pjPct)}</div>
+            </div>
+            <div class="alignment-card ${era.opp.cls}">
+                <div class="alignment-label">${era.opp.label}</div>
+                <div class="alignment-value">${fmt(oppPct)}</div>
+            </div>
         `;
-        alignSummary.appendChild(card);
+        gridEl.appendChild(col);
     }
+    alignSummary.appendChild(gridEl);
 
     // Presentismo + terms info card
     const infoCard = document.getElementById("leg-info-card");
@@ -1256,18 +1272,30 @@ async function exportLegHeaderCard(btnId, mode) {
         ? `<img src="${d.photo}" class="aec-photo" alt="" crossorigin="anonymous">`
         : `<div class="aec-photo-placeholder"></div>`;
 
-    const coalitions = [
-        { key: "PJ",  label: "PJ / UxP / FdT",  cls: "alignment-pj"  },
-        { key: "UCR", label: "UCR / ARI",         cls: "alignment-ucr" },
-        { key: "PRO", label: "JxC / PRO / UCR",   cls: "alignment-pro" },
-        { key: "LLA", label: "LLA / PRO",          cls: "alignment-lla" },
+    const ERA_DEFS_EXP = [
+        { label: "1993\u20132014", key: "1993-2014",
+          opp: { key: "UCR", label: "UCR / ARI",        cls: "alignment-ucr" } },
+        { label: "2015\u20132023", key: "2015-2023",
+          opp: { key: "PRO", label: "JxC / PRO / UCR",  cls: "alignment-pro" } },
+        { label: "2024\u20132026", key: "2024-2026",
+          opp: { key: "LLA", label: "LLA / PRO",         cls: "alignment-lla" } },
     ];
-    const alignCards = coalitions.map((c) => {
-        const val = d.alignment?.[c.key];
-        const display = val !== null && val !== undefined ? val + "\u00a0%" : "N/A";
-        return `<div class="alignment-card ${c.cls}">
-            <div class="alignment-label">${c.label}</div>
-            <div class="alignment-value">${display}</div>
+    const eraAl = d.era_alignment || {};
+    const alignGridCols = ERA_DEFS_EXP.map((era) => {
+        const eraData = eraAl[era.key] || {};
+        const pjPct  = eraData["PJ"]  ?? null;
+        const oppPct = eraData[era.opp.key] ?? null;
+        const fmt    = v => v !== null ? v + "\u00a0%" : "N/A";
+        return `<div class="alignment-era-col">
+            <div class="alignment-era-label">${era.label}</div>
+            <div class="alignment-card alignment-pj">
+                <div class="alignment-label">PJ / FdT / UxP</div>
+                <div class="alignment-value">${fmt(pjPct)}</div>
+            </div>
+            <div class="alignment-card ${era.opp.cls}">
+                <div class="alignment-label">${era.opp.label}</div>
+                <div class="alignment-value">${fmt(oppPct)}</div>
+            </div>
         </div>`;
     }).join("");
 
@@ -1299,7 +1327,7 @@ async function exportLegHeaderCard(btnId, mode) {
             </div>
         </div>
         <div class="lhe-alignment-title">Alineamiento con coaliciones</div>
-        <div class="lhe-alignment-grid">${alignCards}</div>`;
+        <div class="lhe-alignment-grid alignment-grid-3col">${alignGridCols}</div>`;
 
     card.style.display = "block";
     void card.offsetHeight;

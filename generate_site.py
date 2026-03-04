@@ -749,7 +749,6 @@ NAME_ALIASES: dict[str, str] = {
     "FILMUS, DANIEL":                      "FILMUS, DANIEL FERNANDO",
     "GOMEZ, JOSE":                         "GOMEZ, JOSE ERNESTO",
     "GONZALEZ, PABLO G.":                  "GONZALEZ, PABLO GERARDO",
-    "MARINO, JUAN":                        "MARINO, JUAN CARLOS",
     "MARQUEZ, NADIA":                      "MARQUEZ, NADIA JUDITH",
     "MARTINEZ, ALFREDO":                   "MARTINEZ, ALFREDO ANSELMO",
     "MENEM, EDUARDO":                      "MENEM, EDUARDO ADRIAN",
@@ -1396,6 +1395,39 @@ def compute_weighted_alignment(yearly_alignment: dict, coalition: str, min_total
     return round(total_aligned / total_w * 100, 1)
 
 
+def compute_era_alignment(
+    yearly_alignment: dict,
+    coalition: str,
+    year_min: int,
+    year_max: int,
+    min_total: int = 5,
+) -> float | None:
+    """Weighted alignment % for ``coalition`` restricted to [year_min, year_max].
+
+    Uses raw {total, aligned} counts (from leg["yearly_alignment"]) so the
+    result is a true weighted mean: sum(aligned) / sum(total) rather than the
+    arithmetic mean of per-year percentages.
+    """
+    total_w = 0
+    total_aligned = 0
+    for yr, data in yearly_alignment.items():
+        try:
+            yint = int(yr)
+        except (ValueError, TypeError):
+            continue
+        if not (year_min <= yint <= year_max):
+            continue
+        d = data.get(coalition, {})
+        tot = d.get("total", 0)
+        if tot < 1:
+            continue
+        total_w += tot
+        total_aligned += d.get("aligned", 0)
+    if total_w < min_total:
+        return None
+    return round(total_aligned / total_w * 100, 1)
+
+
 def generate_site_data(legislators: dict, law_groups: dict):
     DOCS_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -1552,6 +1584,20 @@ def generate_site_data(legislators: dict, law_groups: dict):
             "alignment": {
                 c: compute_weighted_alignment(leg["yearly_alignment"], c)
                 for c in ["PJ", "UCR", "PRO", "JxC", "LLA"]
+            },
+            "era_alignment": {
+                "1993-2014": {
+                    "PJ":  compute_era_alignment(leg["yearly_alignment"], "PJ",  1993, 2014),
+                    "UCR": compute_era_alignment(leg["yearly_alignment"], "UCR", 1993, 2014),
+                },
+                "2015-2023": {
+                    "PJ":  compute_era_alignment(leg["yearly_alignment"], "PJ",  2015, 2023),
+                    "PRO": compute_era_alignment(leg["yearly_alignment"], "PRO", 2015, 2023),
+                },
+                "2024-2026": {
+                    "PJ":  compute_era_alignment(leg["yearly_alignment"], "PJ",  2024, 2026),
+                    "LLA": compute_era_alignment(leg["yearly_alignment"], "LLA", 2024, 2026),
+                },
             },
             "terms": compute_terms(leg),
             "votes": leg["votes"],

@@ -455,6 +455,47 @@ body {
 .alignment-lla .alignment-label { color: var(--color-lla); }
 .alignment-lla .alignment-value { color: var(--color-lla); }
 
+/* 3-column era breakdown grid */
+.alignment-grid-3col {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.alignment-era-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    align-items: center;
+    min-width: 96px;
+}
+
+.alignment-era-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+.alignment-grid-3col .alignment-card {
+    min-width: 0;
+    width: 100%;
+    padding: 0.45rem 0.55rem;
+    box-sizing: border-box;
+}
+
+.alignment-grid-3col .alignment-card .alignment-value {
+    font-size: 1.3rem;
+}
+
+.alignment-grid-3col .alignment-card .alignment-label {
+    font-size: 0.62rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* ====== LEG-HEADER OFF-SCREEN EXPORT CARD ====== */
 .lhe-alignment-title {
     font-size: 0.6rem;
@@ -466,18 +507,25 @@ body {
 }
 
 .lhe-alignment-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.4rem;
+    /* layout is now handled by .alignment-grid-3col */
+}
+
+#leg-header-export-card .alignment-era-col {
+    min-width: 0;
+    flex: 1;
+}
+
+#leg-header-export-card .alignment-era-label {
+    font-size: 0.55rem;
 }
 
 #leg-header-export-card .alignment-card {
     min-width: 0;
-    padding: 0.4rem 0.6rem;
+    padding: 0.35rem 0.45rem;
 }
 
-#leg-header-export-card .alignment-card .alignment-label { font-size: 0.55rem; }
-#leg-header-export-card .alignment-card .alignment-value { font-size: 1.1rem; }
+#leg-header-export-card .alignment-card .alignment-label { font-size: 0.5rem; }
+#leg-header-export-card .alignment-card .alignment-value { font-size: 1.0rem; }
 
 /* Stats row inside the export card header */
 .lhe-stats {
