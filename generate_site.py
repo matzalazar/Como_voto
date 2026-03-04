@@ -910,6 +910,8 @@ def build_legislator_data(
                         classify_bloc(vote_record.get("bloc", ""))),
                     "votes": [],
                     "yearly_stats": {},
+                    "_yr_blocs": {},  # {chamber: {year_str: {bloc: count}}} - temp
+                    "_yr_provinces": {},  # {chamber: {year_str: {province: count}}} - temp
                     "alignment": {
                         "PJ": {"total": 0, "aligned": 0},
                         "PRO": {"total": 0, "aligned": 0},
@@ -992,6 +994,28 @@ def build_legislator_data(
                 leg["yearly_stats"][yr_key][norm_vote] = \
                     leg["yearly_stats"][yr_key].get(norm_vote, 0) + 1
                 leg["yearly_stats"][yr_key]["total"] += 1
+
+                # Track bloc counts per (chamber, year) for term computation
+                bloc_val = vote_record.get("bloc", "").strip()
+                if bloc_val:
+                    yr_blocs = leg["_yr_blocs"]
+                    if chamber not in yr_blocs:
+                        yr_blocs[chamber] = {}
+                    if yr_key not in yr_blocs[chamber]:
+                        yr_blocs[chamber][yr_key] = {}
+                    yr_blocs[chamber][yr_key][bloc_val] = \
+                        yr_blocs[chamber][yr_key].get(bloc_val, 0) + 1
+
+                # Track province counts per (chamber, year) for term computation
+                prov_val = normalize_province(vote_record.get("province", "").strip())
+                if prov_val:
+                    yr_provs = leg["_yr_provinces"]
+                    if chamber not in yr_provs:
+                        yr_provs[chamber] = {}
+                    if yr_key not in yr_provs[chamber]:
+                        yr_provs[chamber][yr_key] = {}
+                    yr_provs[chamber][yr_key][prov_val] = \
+                        yr_provs[chamber][yr_key].get(prov_val, 0) + 1
 
                 if yr_key not in leg["yearly_alignment"]:
                     leg["yearly_alignment"][yr_key] = {
@@ -1256,6 +1280,72 @@ def build_law_detail_data(law_groups: dict) -> tuple[list[dict], dict[int, dict]
     return laws, votes_by_year
 
 
+def compute_terms(leg: dict, min_votes: int = 5) -> list[dict]:
+    """Derive term records from _yr_blocs + yearly_stats.
+
+    1. Groups consecutive active years (gap ≤ 2) per chamber into runs.
+    2. Further splits each run into mandate-length chunks:
+         diputados → 4 years, senadores → 6 years.
+       A shorter chunk = mandate cut short (resignation, death, etc.).
+
+    Returns list of {ch, yf, yt, b} sorted by year.
+    """
+    MANDATE_LEN = {"diputados": 4, "senadores": 6}
+
+    yr_blocs     = leg.get("_yr_blocs", {})
+    yr_provinces = leg.get("_yr_provinces", {})
+    yearly_stats = leg.get("yearly_stats", {})
+    terms: list[dict] = []
+
+    for ch, yr_dict in yr_blocs.items():
+        max_len = MANDATE_LEN.get(ch, 6)
+
+        # Active years: ≥ min_votes total votes that year
+        active = sorted(
+            int(y) for y in yr_dict
+            if yearly_stats.get(y, {}).get("total", 0) >= min_votes
+        )
+        if not active:
+            continue
+
+        # Split into contiguous runs (gap > 2 = new service period)
+        runs: list[list[int]] = []
+        cur = [active[0]]
+        for y in active[1:]:
+            if y - cur[-1] <= 2:
+                cur.append(y)
+            else:
+                runs.append(cur)
+                cur = [y]
+        runs.append(cur)
+
+        for run in runs:
+            # Further split by mandate length: each sub-run spans at most
+            # max_len calendar years starting from the first year of the sub-run.
+            i = 0
+            while i < len(run):
+                boundary = run[i] + max_len - 1
+                sub = [y for y in run[i:] if y <= boundary]
+                i += len(sub)
+
+                bloc_totals: dict[str, int] = {}
+                for y in sub:
+                    for bloc, cnt in yr_dict.get(str(y), {}).items():
+                        bloc_totals[bloc] = bloc_totals.get(bloc, 0) + cnt
+                dominant = max(bloc_totals, key=bloc_totals.get) if bloc_totals else ""
+
+                prov_totals: dict[str, int] = {}
+                for y in sub:
+                    for prov, cnt in yr_provinces.get(ch, {}).get(str(y), {}).items():
+                        prov_totals[prov] = prov_totals.get(prov, 0) + cnt
+                dominant_prov = max(prov_totals, key=prov_totals.get) if prov_totals else leg.get("province", "")
+
+                terms.append({"ch": ch, "yf": min(sub), "yt": max(sub), "b": dominant, "p": dominant_prov})
+
+    terms.sort(key=lambda t: (t["yf"], t["ch"]))
+    return terms
+
+
 def generate_site_data(legislators: dict, law_groups: dict):
     DOCS_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -1426,6 +1516,7 @@ def generate_site_data(legislators: dict, law_groups: dict):
                    if d["total"] > 0 else None
                 for c, d in leg["alignment"].items()
             },
+            "terms": compute_terms(leg),
             "votes": leg["votes"],
             "laws": waffle_list,
         }

@@ -403,6 +403,22 @@ body {
     flex-wrap: wrap;
 }
 
+.leg-alignment-right {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.leg-alignment-title {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-text-secondary);
+    align-self: flex-start;
+}
+
 .leg-alignment-summary {
     display: flex;
     gap: 1.5rem;
@@ -438,6 +454,144 @@ body {
 .alignment-pro .alignment-value { color: #f9a825; }
 .alignment-lla .alignment-label { color: var(--color-lla); }
 .alignment-lla .alignment-value { color: var(--color-lla); }
+
+/* ====== LEG-HEADER OFF-SCREEN EXPORT CARD ====== */
+.lhe-alignment-title {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-text-secondary);
+    margin: 0.6rem 0 0.4rem;
+}
+
+.lhe-alignment-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+}
+
+#leg-header-export-card .alignment-card {
+    min-width: 0;
+    padding: 0.4rem 0.6rem;
+}
+
+#leg-header-export-card .alignment-card .alignment-label { font-size: 0.55rem; }
+#leg-header-export-card .alignment-card .alignment-value { font-size: 1.1rem; }
+
+/* Stats row inside the export card header */
+.lhe-stats {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.35rem;
+    flex-wrap: wrap;
+}
+.lhe-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 0.2rem;
+}
+.lhe-stat-value {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+.lhe-stat-label {
+    font-size: 0.5rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-text-secondary);
+}
+
+/* Stats row inside the live header */
+.leg-stats-inline {
+    display: flex;
+    gap: 1.25rem;
+    margin-top: 0.6rem;
+    flex-wrap: wrap;
+}
+.leg-stat-inline {
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+}
+.leg-stat-inline-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+.leg-stat-inline-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-text-secondary);
+}
+
+/* ====== LEGISLATOR INFO / TERMS CARD ====== */
+.leg-info-stats-row {
+    display: flex;
+    gap: 2.5rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.leg-info-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.leg-info-stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--color-text);
+}
+
+.leg-info-stat-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-text-secondary);
+}
+
+.leg-terms-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.leg-terms-table th {
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-secondary);
+    padding: 0 0.75rem 0.5rem 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.leg-terms-table td {
+    padding: 0.5rem 0.75rem 0.5rem 0;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
+}
+
+.leg-terms-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Scale down fonts inside the off-screen info export card (html2canvas scale:3 */
+/* makes everything appear 3× — this 0.7 factor brings text down ~30%)          */
+#info-export-card .leg-info-stat-value  { font-size: 1.15rem; }
+#info-export-card .leg-info-stat-label  { font-size: 0.40rem; }
+#info-export-card .leg-terms-table      { font-size: 0.55rem; }
+#info-export-card .leg-terms-table th   { font-size: 0.40rem; }
+#info-export-card .aec-chart-title      { font-size: 0.55rem; }
 
 /* ====== WAFFLE VISUALIZATION ====== */
 .waffle-section {
@@ -751,6 +905,59 @@ body {
     color: #d1d5db;
     margin-top: 0.5rem;
     font-weight: 500;
+}
+
+.export-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.export-footer-date {
+    color: #d1d5db;
+    font-size: 0.65rem;
+    font-weight: 500;
+}
+
+/* ── Presentismo tooltip ── */
+.has-tooltip {
+    position: relative;
+    cursor: help;
+}
+
+.has-tooltip .stat-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 220px;
+    background: #1f2937;
+    color: #f9fafb;
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.4;
+    padding: 0.5rem 0.65rem;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    pointer-events: none;
+    z-index: 100;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.has-tooltip .stat-tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #1f2937;
+}
+
+.has-tooltip:hover .stat-tooltip {
+    display: block;
 }
 
 /* ── Alignment export card (off-screen render target) ── */

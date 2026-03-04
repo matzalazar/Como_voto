@@ -576,6 +576,10 @@ function cleanupLegislatorDetail() {
     document.getElementById("leg-bloc").textContent = "";
     document.getElementById("leg-province").textContent = "";
     document.getElementById("leg-alignment-summary").innerHTML = "";
+    const _infoCard = document.getElementById("leg-info-card");
+    if (_infoCard) _infoCard.style.display = "none";
+    const _statsInline = document.getElementById("leg-stats-inline");
+    if (_statsInline) _statsInline.style.display = "none";
     document.getElementById("waffle-card-name").innerHTML = "";
     document.getElementById("waffle-card-meta").innerHTML = "";
     document.getElementById("waffle-card-body").innerHTML = "";
@@ -636,10 +640,10 @@ function renderLegislatorDetail(data) {
     alignSummary.innerHTML = "";
 
     const coalitions = [
-        { key: "PJ", label: "PJ / UxP / FdT", cls: "alignment-pj" },
-        { key: "UCR", label: "UCR / ARI", cls: "alignment-ucr" },
-        { key: "PRO", label: "JxC / PRO / UCR", cls: "alignment-pro" },
-        { key: "LLA", label: "LLA / PRO", cls: "alignment-lla" },
+        { key: "PJ",  label: "PJ / UxP / FdT",   cls: "alignment-pj"  },
+        { key: "UCR", label: "UCR / ARI",          cls: "alignment-ucr" },
+        { key: "PRO", label: "JxC / PRO / UCR",    cls: "alignment-pro" },
+        { key: "LLA", label: "LLA / PRO",           cls: "alignment-lla" },
     ];
 
     for (const c of coalitions) {
@@ -652,6 +656,61 @@ function renderLegislatorDetail(data) {
         `;
         alignSummary.appendChild(card);
     }
+
+    // Presentismo + terms info card
+    const infoCard = document.getElementById("leg-info-card");
+    const stats = data.yearly_stats || {};
+    const activeYears = Object.keys(stats).filter((y) => {
+        const s = stats[y];
+        return (s.AFIRMATIVO||0)+(s.NEGATIVO||0)+(s.ABSTENCION||0)+(s.AUSENTE||0) >= 5;
+    });
+    let totalV = 0, totalPresent = 0;
+    for (const y of activeYears) {
+        const s = stats[y];
+        totalV       += (s.total || 0);
+        totalPresent += (s.AFIRMATIVO||0) + (s.NEGATIVO||0) + (s.ABSTENCION||0);
+    }
+    const presentismoPct = totalV > 0 ? Math.round(totalPresent / totalV * 100) : null;
+    document.getElementById("leg-presentismo").textContent =
+        presentismoPct !== null ? presentismoPct + "\u00a0%" : "N/A";
+
+    const terms = data.terms || [];
+    document.getElementById("leg-mandatos-count").textContent = terms.length || "N/A";
+
+    const statsInline = document.getElementById("leg-stats-inline");
+    if (statsInline) statsInline.style.display = (presentismoPct !== null || terms.length > 0) ? "flex" : "none";
+
+    const termsList = document.getElementById("leg-terms-list");
+    if (terms.length > 0) {
+        const chLabel = (ch) => ch === "diputados" ? "Diputado/a" : "Senador/a";
+        const chCls   = (ch) => ch === "diputados" ? "badge-diputados" : "badge-senadores";
+        const rows = terms.map((t) => {
+            const period = t.yf === t.yt ? t.yf : `${t.yf}\u2013${t.yt}`;
+            // Per-term presentismo: sum yearly_stats for years within [yf, yt]
+            let termV = 0, termPres = 0;
+            for (let y = t.yf; y <= t.yt; y++) {
+                const s = stats[String(y)];
+                if (!s || (s.total||0) < 1) continue;
+                termV    += (s.total || 0);
+                termPres += (s.AFIRMATIVO||0) + (s.NEGATIVO||0) + (s.ABSTENCION||0);
+            }
+            const tPct = termV > 0 ? Math.round(termPres / termV * 100) + "\u00a0%" : "N/A";
+            return `<tr>
+                <td><span class="badge ${chCls(t.ch)}">${chLabel(t.ch)}</span></td>
+                <td>${period}</td>
+                <td>${escapeHtml(t.p || "")}</td>
+                <td>${escapeHtml(t.b)}</td>
+                <td>${tPct}</td>
+            </tr>`;
+        }).join("");
+        termsList.innerHTML = `<table class="leg-terms-table">
+            <thead><tr><th>C\u00e1mara</th><th>Per\u00edodo</th><th>Provincia</th><th>Partido</th><th>Presentismo</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+    } else {
+        termsList.innerHTML = "";
+    }
+    infoCard.style.display = terms.length > 0 ? "block" : "none";
 
     // Waffle card header — include small portrait next to the politician name
     const waffleNameEl = document.getElementById("waffle-card-name");
@@ -1050,8 +1109,213 @@ async function copyWaffleImage()     { await exportCardImage("waffle-card", "btn
 async function downloadWaffleImage() { await exportCardImage("waffle-card", "btn-download-image", "download"); }
 
 // ── Legislator header card ──────────────────────────────────────────────────
-async function copyLegHeaderImage()     { await exportCardImage("leg-header", "btn-copy-leg-header",     "copy"); }
-async function downloadLegHeaderImage() { await exportCardImage("leg-header", "btn-download-leg-header", "download"); }
+async function exportLegHeaderCard(btnId, mode) {
+    if (!currentDetail) return;
+    const btn      = document.getElementById(btnId);
+    const card     = document.getElementById("leg-header-export-card");
+    const innerEl  = document.getElementById("leg-header-export-inner");
+    const originalText = btn.innerHTML;
+
+    const d = currentDetail;
+    const chambers = d.chambers || [d.chamber];
+    const chamberLabel = chambers.length > 1
+        ? "Dip. + Sen."
+        : chambers[0] === "diputados" ? "Diputado/a" : "Senador/a";
+    const photoHtml = d.photo
+        ? `<img src="${d.photo}" class="aec-photo" alt="" crossorigin="anonymous">`
+        : `<div class="aec-photo-placeholder"></div>`;
+
+    const coalitions = [
+        { key: "PJ",  label: "PJ / UxP / FdT",  cls: "alignment-pj"  },
+        { key: "UCR", label: "UCR / ARI",         cls: "alignment-ucr" },
+        { key: "PRO", label: "JxC / PRO / UCR",   cls: "alignment-pro" },
+        { key: "LLA", label: "LLA / PRO",          cls: "alignment-lla" },
+    ];
+    const alignCards = coalitions.map((c) => {
+        const val = d.alignment?.[c.key];
+        const display = val !== null && val !== undefined ? val + "\u00a0%" : "N/A";
+        return `<div class="alignment-card ${c.cls}">
+            <div class="alignment-label">${c.label}</div>
+            <div class="alignment-value">${display}</div>
+        </div>`;
+    }).join("");
+
+    // Compute stats for export card
+    const expStats = d.yearly_stats || {};
+    const expActiveYears = Object.keys(expStats).filter(y => {
+        const s = expStats[y];
+        return (s.AFIRMATIVO||0)+(s.NEGATIVO||0)+(s.ABSTENCION||0)+(s.AUSENTE||0) >= 5;
+    });
+    let expTotalV = 0, expTotalPresent = 0;
+    for (const y of expActiveYears) {
+        const s = expStats[y];
+        expTotalV       += (s.total || 0);
+        expTotalPresent += (s.AFIRMATIVO||0) + (s.NEGATIVO||0) + (s.ABSTENCION||0);
+    }
+    const expPresText   = expTotalV > 0 ? Math.round(expTotalPresent / expTotalV * 100) + "\u00a0%" : "N/A";
+    const expTermsCount = (d.terms || []).length;
+
+    innerEl.innerHTML = `
+        <div class="aec-header-inner">
+            ${photoHtml}
+            <div class="aec-info">
+                <div class="aec-name">${escapeHtml(d.name)}</div>
+                <div class="aec-meta">${chamberLabel}&ensp;&middot;&ensp;${escapeHtml(shortPartyName(d.bloc))}&ensp;&middot;&ensp;${escapeHtml(d.province)}</div>
+                <div class="lhe-stats">
+                    <div class="lhe-stat"><span class="lhe-stat-value">${expTermsCount}</span><span class="lhe-stat-label">Mandatos</span></div>
+                    <div class="lhe-stat"><span class="lhe-stat-value">${expPresText}</span><span class="lhe-stat-label">Presentismo</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="lhe-alignment-title">Alineamiento con coaliciones</div>
+        <div class="lhe-alignment-grid">${alignCards}</div>`;
+
+    card.style.display = "block";
+    void card.offsetHeight;
+
+    btn.innerHTML = "⏳ Generando...";
+    btn.disabled  = true;
+
+    const mobile = isMobile();
+
+    function triggerDl(blob) {
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement("a");
+        a.href     = url;
+        a.download = `como_voto_encabezado.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    try {
+        const photoImg = innerEl.querySelector("img.aec-photo");
+        if (photoImg && !photoImg.complete) {
+            await new Promise((res) => { photoImg.onload = res; photoImg.onerror = res; });
+        }
+        const canvas = await html2canvas(card, {
+            backgroundColor: "#ffffff", scale: 3, useCORS: true, logging: false,
+        });
+        const blob = await new Promise((res, rej) =>
+            canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
+
+        if (mode === "download") {
+            triggerDl(blob);
+            btn.innerHTML = "✓ Descargado!";
+        } else {
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+                btn.innerHTML = "✓ Copiado!";
+            } catch (e) {
+                if (mobile) {
+                    triggerDl(blob);
+                    btn.innerHTML = "✓ Descargado!";
+                } else {
+                    console.error("Clipboard write failed:", e);
+                    btn.innerHTML = "Error al copiar";
+                }
+            }
+        }
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+    } catch (err) {
+        console.error("Error exporting leg header card:", err);
+        btn.innerHTML = "Error :(";
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+    } finally {
+        card.style.display = "none";
+    }
+}
+async function copyLegHeaderImage()     { await exportLegHeaderCard("btn-copy-leg-header",     "copy"); }
+async function downloadLegHeaderImage() { await exportLegHeaderCard("btn-download-leg-header", "download"); }
+
+// ── Info card (presentismo + mandatos) ──────────────────────────────────────
+async function exportInfoCard(btnId, mode) {
+    if (!currentDetail) return;
+    const btn      = document.getElementById(btnId);
+    const card     = document.getElementById("info-export-card");
+    const headerEl = document.getElementById("info-export-header");
+    const contentEl = document.getElementById("info-export-content");
+    const originalText = btn.innerHTML;
+
+    const d = currentDetail;
+    const chambers = d.chambers || [d.chamber];
+    const chamberLabel = chambers.length > 1
+        ? "Dip. + Sen."
+        : chambers[0] === "diputados" ? "Diputado/a" : "Senador/a";
+    const photoHtml = d.photo
+        ? `<img src="${d.photo}" class="aec-photo" alt="" crossorigin="anonymous">`
+        : `<div class="aec-photo-placeholder"></div>`;
+    headerEl.innerHTML = `
+        <div class="aec-header-inner">
+            ${photoHtml}
+            <div class="aec-info">
+                <div class="aec-name">${d.name}</div>
+                <div class="aec-meta">${chamberLabel}&ensp;&middot;&ensp;${shortPartyName(d.bloc)}&ensp;&middot;&ensp;${d.province}</div>
+            </div>
+        </div>`;
+
+    // Clone the live stats + terms content into the export card
+    const liveStats  = document.querySelector(".leg-info-stats-row");
+    const liveTerms  = document.getElementById("leg-terms-list");
+    contentEl.innerHTML = "";
+    if (liveStats) contentEl.appendChild(liveStats.cloneNode(true));
+    if (liveTerms) contentEl.appendChild(liveTerms.cloneNode(true));
+
+    card.style.display = "block";
+    void card.offsetHeight;
+
+    btn.innerHTML = "⏳ Generando...";
+    btn.disabled  = true;
+
+    const mobile = isMobile();
+
+    function triggerDl(blob) {
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement("a");
+        a.href     = url;
+        a.download = `como_voto_mandatos.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    try {
+        const photoImg = headerEl.querySelector("img.aec-photo");
+        if (photoImg && !photoImg.complete) {
+            await new Promise((res) => { photoImg.onload = res; photoImg.onerror = res; });
+        }
+        const canvas = await html2canvas(card, {
+            backgroundColor: "#ffffff", scale: 3, useCORS: true, logging: false,
+        });
+        const blob = await new Promise((res, rej) =>
+            canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
+
+        if (mode === "download") {
+            triggerDl(blob);
+            btn.innerHTML = "✓ Descargado!";
+        } else {
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+                btn.innerHTML = "✓ Copiado!";
+            } catch (e) {
+                if (mobile) {
+                    triggerDl(blob);
+                    btn.innerHTML = "✓ Descargado!";
+                } else {
+                    console.error("Clipboard write failed:", e);
+                    btn.innerHTML = "Error al copiar";
+                }
+            }
+        }
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+    } catch (err) {
+        console.error("Error exporting info card:", err);
+        btn.innerHTML = "Error :(";
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+    } finally {
+        card.style.display = "none";
+    }
+}
+async function copyInfoCardImage()     { await exportInfoCard("btn-copy-info-card",     "copy"); }
+async function downloadInfoCardImage() { await exportInfoCard("btn-download-info-card", "download"); }
 
 // ── Alignment chart card ────────────────────────────────────────────────────
 // We can't simply resize the live chart-card: Chart.js renders onto a canvas
@@ -1077,7 +1341,7 @@ function renderAlignmentForExport() {
         type: cfg.type,
         data: {
             labels: cfg.data.labels,
-            datasets: cfg.data.datasets.map((ds) => ({ ...ds, pointRadius: 6, pointHoverRadius: 8 })),
+            datasets: cfg.data.datasets.map((ds) => ({ ...ds, pointRadius: 8, pointHoverRadius: 10 })),
         },
         options: {
             animation: false,
@@ -1089,7 +1353,7 @@ function renderAlignmentForExport() {
                     ...cfg.options.plugins.legend,
                     labels: {
                         ...cfg.options.plugins.legend?.labels,
-                        font: { size: 22 },
+                        font: { size: 28 },
                         boxWidth: 9,
                         boxHeight: 9,
                         padding: 20,
@@ -1100,11 +1364,11 @@ function renderAlignmentForExport() {
             scales: {
                 x: {
                     ...cfg.options.scales?.x,
-                    ticks: { ...cfg.options.scales?.x?.ticks, font: { size: 20 }, maxRotation: 45, minRotation: 45 },
+                    ticks: { ...cfg.options.scales?.x?.ticks, font: { size: 24 }, maxRotation: 45, minRotation: 45 },
                 },
                 y: {
                     ...cfg.options.scales?.y,
-                    ticks: { ...cfg.options.scales?.y?.ticks, font: { size: 20 } },
+                    ticks: { ...cfg.options.scales?.y?.ticks, font: { size: 24 } },
                 },
             },
             interaction: { mode: "none" },
@@ -1954,6 +2218,14 @@ function parseArgDate(dateStr) {
         });
     }
     // Wire waffle/legislator detail share + copy buttons
+
+    // Stamp today's date on all export card footers once at load time
+    const _exportDateStr = new Date().toISOString().slice(0, 10);
+    ["lhe-export-date", "align-export-date", "yearly-export-date", "info-export-date"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = _exportDateStr;
+    });
+
     const btnCopyWaffle = document.getElementById("btn-copy-image");
     if (btnCopyWaffle) btnCopyWaffle.addEventListener("click", copyWaffleImage);
     const btnDownloadWaffle = document.getElementById("btn-download-image");
@@ -1968,6 +2240,14 @@ function parseArgDate(dateStr) {
     if (btnDownloadLegHeader) btnDownloadLegHeader.addEventListener("click", downloadLegHeaderImage);
     const btnShareLegHeader = document.getElementById("btn-share-leg-header-tw");
     if (btnShareLegHeader) btnShareLegHeader.addEventListener("click", shareTwitter);
+
+    // Wire info card (presentismo + mandatos) image buttons
+    const btnCopyInfoCard = document.getElementById("btn-copy-info-card");
+    if (btnCopyInfoCard) btnCopyInfoCard.addEventListener("click", copyInfoCardImage);
+    const btnDownloadInfoCard = document.getElementById("btn-download-info-card");
+    if (btnDownloadInfoCard) btnDownloadInfoCard.addEventListener("click", downloadInfoCardImage);
+    const btnShareInfoCard = document.getElementById("btn-share-info-card-tw");
+    if (btnShareInfoCard) btnShareInfoCard.addEventListener("click", shareTwitter);
 
     // Wire alignment chart image buttons
     const btnCopyAlignment = document.getElementById("btn-copy-alignment");
