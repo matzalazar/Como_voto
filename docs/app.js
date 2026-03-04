@@ -30,6 +30,87 @@ const LAWS_PER_PAGE = 10;
 
 const DATA_PATH = "data";
 
+// Widget instance for the multi-year waffle dropdown
+let _waffleYearWidget = null;
+
+// ===========================================================================
+//  MULTI-SELECT DROPDOWN WIDGET
+// ===========================================================================
+
+/**
+ * Wraps a hidden <select multiple> with a button+checkbox-panel dropdown.
+ * Dispatches a native "change" event on the original select when selections
+ * change, so existing event listeners continue to work unchanged.
+ * Returns { rebuild } — call rebuild() whenever the select's options change.
+ */
+function initMultiSelect(selectEl, placeholder = "Todos") {
+    if (!selectEl) return null;
+
+    // Avoid double-wrapping
+    if (selectEl.parentNode.classList.contains("ms-wrap")) {
+        const existing = selectEl.parentNode._msWidget;
+        if (existing) return existing;
+    }
+
+    const wrap = document.createElement("div");
+    wrap.className = "ms-wrap";
+    selectEl.parentNode.insertBefore(wrap, selectEl);
+    wrap.appendChild(selectEl);
+    selectEl.style.display = "none";
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ms-btn";
+    wrap.appendChild(btn);
+
+    const panel = document.createElement("div");
+    panel.className = "ms-panel hidden";
+    wrap.appendChild(panel);
+
+    function updateBtn() {
+        const sel = Array.from(selectEl.selectedOptions).map(o => o.text);
+        btn.textContent = sel.length === 0 ? placeholder : sel.join(", ");
+        btn.classList.toggle("ms-active", sel.length > 0);
+    }
+
+    function rebuild() {
+        panel.innerHTML = "";
+        Array.from(selectEl.options).forEach(opt => {
+            const lbl = document.createElement("label");
+            lbl.className = "ms-option";
+            const cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.value = opt.value;
+            cb.checked = opt.selected;
+            cb.addEventListener("change", () => {
+                opt.selected = cb.checked;
+                updateBtn();
+                selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+            });
+            lbl.appendChild(cb);
+            lbl.appendChild(document.createTextNode("\u00a0" + opt.text));
+            panel.appendChild(lbl);
+        });
+        updateBtn();
+    }
+
+    btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const open = !panel.classList.contains("hidden");
+        // Close all other open ms-panels first
+        document.querySelectorAll(".ms-panel:not(.hidden)").forEach(p => p.classList.add("hidden"));
+        panel.classList.toggle("hidden", open);
+    });
+
+    document.addEventListener("click", () => panel.classList.add("hidden"));
+    panel.addEventListener("click", e => e.stopPropagation());
+
+    rebuild();
+    const widget = { rebuild };
+    wrap._msWidget = widget;
+    return widget;
+}
+
 // ===========================================================================
 //  SEARCH
 // ===========================================================================
@@ -127,7 +208,7 @@ function hideSearchResults() {
 
 function onLawSearchInput() {
     const query = document.getElementById("law-search").value.trim().toLowerCase();
-    const yearVal = document.getElementById("law-year-filter").value;
+    const yearVal = (document.getElementById("law-year-filter")?.value || "");
     const chamberVal = document.getElementById("law-chamber-filter").value;
     const dropdown = document.getElementById("law-search-results");
 
@@ -545,7 +626,10 @@ async function loadLegislatorDetail(nameKey, urlParams) {
         if (urlParams) {
             if (urlParams.wy) {
                 const wyfEl = document.getElementById("waffle-year-filter");
-                if (wyfEl) { wyfEl.value = urlParams.wy; }
+                if (wyfEl) {
+                    const opt = Array.from(wyfEl.options).find(o => o.value === urlParams.wy);
+                    if (opt) opt.selected = true;
+                }
             }
             if (urlParams.wq) {
                 const wlfEl = document.getElementById("waffle-law-filter");
@@ -606,7 +690,8 @@ function cleanupLegislatorDetail() {
 
     // Reset all filters
     const waffleYearFilter = document.getElementById("waffle-year-filter");
-    if (waffleYearFilter) waffleYearFilter.innerHTML = '<option value="">Todos</option>';
+    if (waffleYearFilter) { waffleYearFilter.innerHTML = ""; }
+    if (_waffleYearWidget) _waffleYearWidget.rebuild();
     const waffleLawFilter = document.getElementById("waffle-law-filter");
     if (waffleLawFilter) waffleLawFilter.value = "";
     const votesYearFilter = document.getElementById("votes-year-filter");
@@ -744,13 +829,11 @@ function renderLegislatorDetail(data) {
 
     // Populate waffle year filter (only years that have notable laws)
     const waffleYearFilter = document.getElementById("waffle-year-filter");
-    waffleYearFilter.innerHTML = '<option value="">Todos</option>';
     const notableLawYears = [...new Set(
         (data.laws || []).filter((l) => l.notable).map((l) => String(l.year))
     )].sort();
-    for (const y of notableLawYears) {
-        waffleYearFilter.innerHTML += `<option value="${y}">${y}</option>`;
-    }
+    waffleYearFilter.innerHTML = notableLawYears.map(y => `<option value="${y}">${y}</option>`).join("");
+    if (_waffleYearWidget) _waffleYearWidget.rebuild();
 
     // Reset waffle law filter
     document.getElementById("waffle-law-filter").value = "";
@@ -804,7 +887,10 @@ function showSearchView() {
 function renderWaffle() {
     if (!currentDetail) return;
 
-    const yearFilter = document.getElementById("waffle-year-filter").value;
+    const wyfEl = document.getElementById("waffle-year-filter");
+    const selectedYears = wyfEl
+        ? new Set(Array.from(wyfEl.selectedOptions).map(o => o.value).filter(Boolean))
+        : new Set();
     const lawFilter = document.getElementById("waffle-law-filter").value.trim().toLowerCase();
 
     let laws = currentDetail.laws || [];
@@ -818,8 +904,8 @@ function renderWaffle() {
     }
 
     // Apply year filter
-    if (yearFilter) {
-        laws = laws.filter((l) => String(l.year) === yearFilter);
+    if (selectedYears.size > 0) {
+        laws = laws.filter((l) => selectedYears.has(String(l.year)));
     }
 
     const body = document.getElementById("waffle-card-body");
@@ -1624,7 +1710,8 @@ function buildShareUrl() {
     const params = new URLSearchParams();
     if (currentLegKey) params.set("leg", currentLegKey);
     const wy = document.getElementById("waffle-year-filter");
-    if (wy && wy.value) params.set("wy", wy.value);
+    const wyVals = wy ? Array.from(wy.selectedOptions).map(o => o.value).filter(Boolean) : [];
+    if (wyVals.length > 0) params.set("wy", wyVals[0]);
     const wq = document.getElementById("waffle-law-filter");
     if (wq && wq.value.trim()) params.set("wq", wq.value.trim());
     const qs = params.toString();
@@ -2121,9 +2208,8 @@ function parseArgDate(dateStr) {
             const years = [...new Set(lawsData.map((l) => l.y).filter(Boolean))].sort();
             const lawYearFilter = document.getElementById("law-year-filter");
             if (lawYearFilter) {
-                for (const y of years) {
-                    lawYearFilter.innerHTML += `<option value="${y}">${y}</option>`;
-                }
+                lawYearFilter.innerHTML = '<option value="">Todos</option>' +
+                    years.map(y => `<option value="${y}">${y}</option>`).join("");
             }
         } else {
             console.warn("Could not load laws_detail.json", lawResp.status);
@@ -2186,6 +2272,19 @@ function parseArgDate(dateStr) {
             if (e.key === "Escape" && lawDropdown) { lawDropdown.classList.add("hidden"); lawSearchInput.blur(); }
         });
     }
+    // Close when clicking anywhere outside the search box or its dropdown
+    // (covers the case where dropdown was opened by a filter change, not by focus)
+    document.addEventListener("click", (e) => {
+        const lawBox = lawSearchInput?.closest(".law-search-wrapper") || lawSearchInput;
+        if (!lawBox?.contains(e.target) && !lawDropdown?.contains(e.target)) {
+            lawDropdown?.classList.add("hidden");
+        }
+    });
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && lawDropdown && !lawDropdown.classList.contains("hidden")) {
+            lawDropdown.classList.add("hidden");
+        }
+    });
 
     const lawYearFilterEl = document.getElementById("law-year-filter");
     if (lawYearFilterEl) lawYearFilterEl.addEventListener("change", onLawSearchInput);
@@ -2205,6 +2304,7 @@ function parseArgDate(dateStr) {
     if (waffleLawFilter) waffleLawFilter.addEventListener("input", debounce(() => { currentWafflePage = 1; renderWaffle(); }, 200));
     const waffleYearFilter = document.getElementById("waffle-year-filter");
     if (waffleYearFilter) waffleYearFilter.addEventListener("change", () => { currentWafflePage = 1; renderWaffle(); });
+    _waffleYearWidget = initMultiSelect(waffleYearFilter, "Todos");
 
     // Wire province filter (was missing)
     const provinceSel = document.getElementById("filter-province");

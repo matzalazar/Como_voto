@@ -52,6 +52,11 @@ log = logging.getLogger("processor")
 # tracking), this classifies into the five actual major parties by their
 # real bloc name at the time of voting.
 
+# Exact phrases that must NOT match PJ keywords (checked before _PJ_PARTY_KW)
+_OTROS_OVERRIDE_PHRASES = [
+    "peronismo federal",
+]
+
 _PJ_PARTY_KW = [
     "justicialista", "frente de todos", "frente para la victoria",
     "unión por la patria", "union por la patria",
@@ -187,6 +192,9 @@ def classify_bloc_party(bloc_name: str) -> str:
     Returns one of: PJ, UCR, PRO, LLA, CC, OTHER.
     """
     name = bloc_name.lower().strip()
+    for phrase in _OTROS_OVERRIDE_PHRASES:
+        if phrase in name:
+            return "OTROS"
     for kw in _PJ_PARTY_KW:
         if kw in name:
             return "PJ"
@@ -348,6 +356,11 @@ COMMON_LAW_NAMES = [
         (["identidad de género", "identidad de genero",
             "ley de identidad"],
          "Identidad de Genero"),
+        (["cupo laboral trans", "cupo laboral travesti",
+            "acceso al empleo formal para personas travestis",
+            "acceso al empleo formal para pers travestis",
+            "travesti, transexual", "travestis, transexuales"],
+         "Cupo Laboral Trans"),
         (["salud mental"], "Salud Mental"),
         (["barrios populares"], "Barrios Populares"),
 
@@ -1346,27 +1359,51 @@ def compute_terms(leg: dict, min_votes: int = 5) -> list[dict]:
     return terms
 
 
+def compute_weighted_alignment(yearly_alignment: dict, coalition: str, min_total: int = 5) -> float | None:
+    """Return overall alignment % as a weighted mean of yearly values.
+
+    Only years that meet ``min_total`` contested votes (under the same year
+    masks used for per-year display) are included.  Returns None when no
+    year qualifies.
+    """
+    total_w = 0
+    total_aligned = 0
+    for yr, data in yearly_alignment.items():
+        try:
+            yint = int(yr)
+        except (ValueError, TypeError):
+            continue
+        d = data.get(coalition, {})
+        tot = d.get("total", 0)
+        if tot < min_total:
+            continue
+        # Apply the same year masks used for per-year display
+        if coalition == "UCR":
+            if yint > 2014:
+                continue
+        elif coalition in ("JxC", "PRO"):
+            if not (2015 <= yint <= 2023):
+                continue
+        elif coalition == "LLA":
+            if yint < 2024:
+                continue
+        # PJ: no year mask
+        total_w += tot
+        total_aligned += d.get("aligned", 0)
+    if total_w == 0:
+        return None
+    return round(total_aligned / total_w * 100, 1)
+
+
 def generate_site_data(legislators: dict, law_groups: dict):
     DOCS_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     # 1. Legislators index
     leg_index = []
     for key, leg in sorted(legislators.items(), key=lambda x: x[0]):
-        alignment_pj = (
-            round(leg["alignment"]["PJ"]["aligned"]
-                  / leg["alignment"]["PJ"]["total"] * 100, 1)
-            if leg["alignment"]["PJ"]["total"] > 0 else None
-        )
-        alignment_pro = (
-            round(leg["alignment"]["PRO"]["aligned"]
-                  / leg["alignment"]["PRO"]["total"] * 100, 1)
-            if leg["alignment"]["PRO"]["total"] > 0 else None
-        )
-        alignment_lla = (
-            round(leg["alignment"]["LLA"]["aligned"]
-                  / leg["alignment"]["LLA"]["total"] * 100, 1)
-            if leg["alignment"]["LLA"]["total"] > 0 else None
-        )
+        alignment_pj  = compute_weighted_alignment(leg["yearly_alignment"], "PJ")
+        alignment_pro = compute_weighted_alignment(leg["yearly_alignment"], "PRO")
+        alignment_lla = compute_weighted_alignment(leg["yearly_alignment"], "LLA")
 
         total_votes = sum(
             s.get("total", 0) for s in leg["yearly_stats"].values()
@@ -1512,9 +1549,8 @@ def generate_site_data(legislators: dict, law_groups: dict):
             "yearly_stats": leg["yearly_stats"],
             "yearly_alignment": yearly_alignment_pct,
             "alignment": {
-                c: round(d["aligned"] / d["total"] * 100, 1)
-                   if d["total"] > 0 else None
-                for c, d in leg["alignment"].items()
+                c: compute_weighted_alignment(leg["yearly_alignment"], c)
+                for c in ["PJ", "UCR", "PRO", "JxC", "LLA"]
             },
             "terms": compute_terms(leg),
             "votes": leg["votes"],

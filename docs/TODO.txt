@@ -1,3 +1,1 @@
 #Add number of proyectos presented by each politico during each year of service and/or the total amount.
-
-To the bottom of generated images, from anywhere in the site, lets add the date it was generated (no need for the time), on the bottom left in the same gray shade as comovoto.dev.ar that is on the bottom right
