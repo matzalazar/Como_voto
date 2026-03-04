@@ -4,7 +4,7 @@ Visualización interactiva de cómo votan los Diputados y Senadores de la Nació
 
 ## 🌐 Ver el sitio
 
-👉 **[Abrir ¿Cómo Votó?](https://TU-USUARIO.github.io/Como_voto/)**
+👉 **[Abrir ¿Cómo Votó?](https://rquiroga7.github.io/Como_voto/)**
 
 *(Reemplazá TU-USUARIO con tu nombre de usuario de GitHub)*
 
