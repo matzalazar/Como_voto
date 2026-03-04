@@ -326,7 +326,7 @@ COMMON_LAW_NAMES = [
          "Extincion de Dominio"),
         (["inteligencia nacional", "agencia federal de inteligencia"],
          "Inteligencia Nacional"),
-        (["narcotráfico", "narcotrafico"], "Narcotrafico"),
+        (["narcotráfico", "narcotrafico"], "Narcotráfico"),
 
         # --- Labor ---
         (["reforma laboral", "modernización laboral",
@@ -345,7 +345,7 @@ COMMON_LAW_NAMES = [
             "interrupcion voluntaria del embarazo", "aborto"],
          "IVE / Aborto"),
         (["violencia de género", "violencia de genero"],
-         "Violencia de Genero"),
+         "Violencia de Género"),
         (["emergencia alimentaria"], "Emergencia Alimentaria"),
         (["matrimonio igualitario",
             "matrimonio entre personas del mismo sexo",
@@ -356,7 +356,7 @@ COMMON_LAW_NAMES = [
         (["identidad de género", "identidad de genero",
             "ley de identidad",
             "cd-76/11"],   # Temas Varios O.D.CD-76/11-PL,O.D. 62/2012 — Senate 09/05/2012 (Ley 26.743)
-         "Identidad de Genero"),
+         "Ley de Identidad de Género"),
         (["cupo laboral trans", "cupo laboral travesti",
             "acceso al empleo formal para personas travestis",
             "acceso al empleo formal para pers travestis",
@@ -835,6 +835,39 @@ def attach_photos(legislators: dict, photo_map: dict[str, str]):
     log.info(f"Attached photos to {matched}/{len(legislators)} legislators")
 
 
+def _article_from_slug(url: str) -> str | None:
+    """Extract an article/section label from an HCDN slug URL.
+
+    HCDN appends the vote-type descriptor at the END of the slug, e.g.:
+      …/votacion/derecho-identidad-genero-articulo-5/394  -> "Art. 5"
+      …/votacion/ley-bases-titulo-ii/394                  -> "Título II"
+      …/votacion/ley-bases-en-particular/394              -> "En Particular"
+
+    Returns None when no EN-PARTICULAR pattern is found so the title/vtype
+    fallback still handles EN-GENERAL cases (avoiding false positives).
+    """
+    m = re.search(r'/votacion/([^/]+)/\d+$', url)
+    if not m:
+        return None
+    slug = m.group(1).lower()
+
+    # -articulo-{N[suffix]} at end (most common EN PARTICULAR pattern)
+    art = re.search(r'-articulo-(\d+[a-z]*)$', slug)
+    if art:
+        return f"Art. {art.group(1)}"
+
+    # -titulo-{roman/digits} at end
+    tit = re.search(r'-titulo-([ivxlcdm\d]+(?:-[a-z]+)?)$', slug)
+    if tit:
+        return f"T\u00edtulo {tit.group(1).upper()}"
+
+    # -en-particular at end (no specific article number)
+    if slug.endswith('-en-particular') or slug.endswith('-particular'):
+        return "En Particular"
+
+    return None
+
+
 def build_legislator_data(
     all_votaciones: list[dict], law_groups: dict
 ) -> dict:
@@ -952,26 +985,30 @@ def build_legislator_data(
 
             norm_vote = normalize_vote(vote_record.get("vote", ""))
 
-            article_label = ""
-            title_upper = title.upper()
-
-            titulo_match = re.search(
-                r"T[IÍ]TULO\s+([\dIVXLCDM]+)", title_upper
-            )
-            if titulo_match:
-                article_label = f"Título {titulo_match.group(1)}"
-            elif "EN GENERAL" in title_upper or \
-                 vtype.upper() == "EN GENERAL":
-                article_label = "En General"
-            elif "EN PARTICULAR" in title_upper or \
-                 vtype.upper() == "EN PARTICULAR":
-                art_match = re.search(
-                    r"ART[IÍ]?CULO?\s*\.?\s*(\d+)", title, re.IGNORECASE
+            # Primary: extract from HCDN slug URL — reliable even when the
+            # stored vtype/title don't distinguish EN PARTICULAR votes
+            # (e.g. all three Identidad de Género IDs share the same title
+            # and tp="EN GENERAL" but their slugs encode articulo-5/11).
+            article_label = _article_from_slug(votacion.get("url", ""))
+            if not article_label:
+                title_upper = title.upper()
+                titulo_match = re.search(
+                    r"T[IÍ]TULO\s+([\dIVXLCDM]+)", title_upper
                 )
-                if art_match:
-                    article_label = f"Art. {art_match.group(1)}"
-                else:
-                    article_label = "En Particular"
+                if titulo_match:
+                    article_label = f"Título {titulo_match.group(1)}"
+                elif "EN GENERAL" in title_upper or \
+                     vtype.upper() == "EN GENERAL":
+                    article_label = "En General"
+                elif "EN PARTICULAR" in title_upper or \
+                     vtype.upper() == "EN PARTICULAR":
+                    art_match = re.search(
+                        r"ART[IÍ]?CULO?\s*\.?\s*(\d+)", title, re.IGNORECASE
+                    )
+                    if art_match:
+                        article_label = f"Art. {art_match.group(1)}"
+                    else:
+                        article_label = "En Particular"
 
             vote_entry = {
                 "vid": votacion_id,
@@ -1180,8 +1217,12 @@ def build_law_detail_data(law_groups: dict) -> tuple[list[dict], dict[int, dict]
 
                 leg_name = vr.get("name", "").strip()
                 if leg_name:
-                    names[party_key][idx].append(leg_name)
-                    name_set.add(leg_name)
+                    # Normalize and resolve aliases so names in the year data
+                    # match the legislator index keys exactly, enabling links.
+                    norm = normalize_name(leg_name)
+                    norm = NAME_ALIASES.get(norm, norm)
+                    names[party_key][idx].append(norm)
+                    name_set.add(norm)
 
             # Skip votaciones with zero relevant votes
             if sum(total) == 0:
@@ -1516,10 +1557,14 @@ def generate_site_data(legislators: dict, law_groups: dict):
         )
         for vote in leg["votes"]:
             ln = vote.get("ln", "")
-            # Determine merge key: use common_name if available, else gk
+            # Determine merge key: use common_name if available, else gk.
+            # Include the year so that recurring laws (Presupuesto, Consenso
+            # Fiscal, etc.) produce one waffle row per year instead of a single
+            # row merging all years together.
             common_name = get_common_name(ln) if ln else None
             if common_name:
-                merge_key = f"COMMON|{common_name}"
+                yr = vote.get("yr", "")
+                merge_key = f"COMMON|{common_name}|{yr}" if yr else f"COMMON|{common_name}"
             else:
                 gk = vote.get("gk", "")
                 merge_key = gk if gk else f"SINGLE_{vote['vid']}"
@@ -1553,6 +1598,24 @@ def generate_site_data(legislators: dict, law_groups: dict):
 
         waffle_list = []
         for gk, wg in waffle_groups.items():
+            # Ensure at least one vote is marked g:True so the waffle always
+            # has a prominent "summary" tile.  EN PARTICULAR votes whose EN
+            # GENERAL companion is absent (not scraped, or in a different
+            # session) would otherwise leave the row with no highlighted tile.
+            # In that case we synthesise a virtual AUSENTE EN GENERAL tile so
+            # the row always has a clearly-marked summary tile rather than
+            # mis-promoting an article vote.
+            if not any(v["g"] for v in wg["votes"]):
+                first = wg["votes"][0] if wg["votes"] else {}
+                wg["votes"].insert(0, {
+                    "v": "AUSENTE",
+                    "al": "En General",
+                    "t": "Sin registro de votación en general",
+                    "vid": None,
+                    "ch": first.get("ch", ""),
+                    "g": True,
+                })
+
             # pick first available vote URL to act as law link
             law_url = ""
             for vote in wg["votes"]:

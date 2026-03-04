@@ -402,6 +402,13 @@ class ConsolidatedDB:
             "u": raw.get("ausente", 0),
             "v": compact_votes,
         }
+        # Extract and save the slug from the fetched URL so expand_votacion
+        # can reconstruct the correct link without re-hitting the slug map.
+        # URL shape: .../votacion/{slug}/{id}  → save slug; bare .../votacion/{id} → save ""
+        raw_url = raw.get("url", "")
+        slug_m = re.search(r"/votacion/([^/]+)/\d+$", raw_url)
+        if slug_m:
+            entry["sl"] = slug_m.group(1)
         self.votaciones.append(entry)
         self._votacion_ids.add(vid)
 
@@ -430,7 +437,14 @@ class ConsolidatedDB:
         # compute URL for source page if possible
         url = ""
         if chamber == "diputados" and compact.get("id"):
-            url = f"{HCDN_BASE}/votacion/{compact.get('id')}"
+            slug = compact.get("sl", "")
+            if not slug:
+                # Fallback for records saved before the slug field was added
+                slug = _get_slug_map().get(str(compact.get("id")), "")
+            if slug:
+                url = f"{HCDN_BASE}/votacion/{slug}/{compact.get('id')}"
+            else:
+                url = f"{HCDN_BASE}/votacion/{compact.get('id')}"
         elif chamber == "senadores" and compact.get("id"):
             url = f"{SENADO_BASE}/votaciones/detalleActa/{compact.get('id')}"
 
