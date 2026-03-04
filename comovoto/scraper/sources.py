@@ -23,6 +23,22 @@ from .http import fetch, fetch_soup
 log = logging.getLogger("scraper")
 
 
+def _format_eta(seconds: float) -> str:
+    """Format ETA seconds into a compact human-readable string."""
+    if seconds <= 0:
+        return "0s"
+    if seconds == float("inf"):
+        return "N/A"
+    total = int(seconds)
+    hours, rem = divmod(total, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return f"{hours}h {minutes:02d}m"
+    if minutes:
+        return f"{minutes}m {secs:02d}s"
+    return f"{secs}s"
+
+
 def _extract_vote_counts(scope: BeautifulSoup, result: dict):
     """Fill vote counters by pairing each label with its nearest previous h3."""
     for h4 in scope.find_all("h4"):
@@ -143,15 +159,22 @@ def scrape_diputados():
     db.load()
     log.info("Existing DB: %s votaciones, %s names", len(db.votaciones), len(db.names))
 
+    pending_ids = [str(vid) for vid in range(1, HCDN_MAX_ID + 1) if not db.has_votacion(str(vid))]
+    pending_total = len(pending_ids)
+    log.info(
+        "Pending IDs to probe: %s (already present in DB: %s/%s)",
+        pending_total,
+        HCDN_MAX_ID - pending_total,
+        HCDN_MAX_ID,
+    )
+    if pending_total == 0:
+        log.info("No new Diputados IDs to probe.")
+        return
+
     new_count = 0
-    checked = 0
+    start_ts = time.monotonic()
 
-    for vid_int in range(1, HCDN_MAX_ID + 1):
-        vid = str(vid_int)
-        if db.has_votacion(vid):
-            continue
-
-        checked += 1
+    for checked, vid in enumerate(pending_ids, start=1):
         data = scrape_hcdn_votacion(vid)
 
         if data and data.get("votes"):
@@ -169,19 +192,32 @@ def scrape_diputados():
 
             log.info("  [%s] Saved: %s", vid, data.get("title", "")[:80])
 
-        if checked % 500 == 0:
+        if checked % 100 == 0 or checked == pending_total:
+            elapsed = time.monotonic() - start_ts
+            rate = checked / elapsed if elapsed > 0 else 0.0
+            remaining = pending_total - checked
+            eta_seconds = remaining / rate if rate > 0 else float("inf")
             log.info(
-                "  Progress: checked %s, saved %s new, at ID %s",
+                (
+                    "  Progress: checked %s/%s pending IDs (%.1f%%), "
+                    "saved %s new, at ID %s, ETA %s"
+                ),
                 checked,
+                pending_total,
+                (checked / pending_total) * 100,
                 new_count,
-                vid_int,
+                vid,
+                _format_eta(eta_seconds),
             )
 
     db.save()
     log.info(
-        "Diputados: scraped %s new votaciones (checked %s IDs, total in DB: %s)",
+        (
+            "Diputados: scraped %s new votaciones "
+            "(checked %s pending IDs, total in DB: %s)"
+        ),
         new_count,
-        checked,
+        pending_total,
         len(db.votaciones),
     )
 
