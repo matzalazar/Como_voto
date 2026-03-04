@@ -354,7 +354,8 @@ COMMON_LAW_NAMES = [
             "codigo civil, sobre matrimonio"],
          "Matrimonio Igualitario"),
         (["identidad de género", "identidad de genero",
-            "ley de identidad"],
+            "ley de identidad",
+            "cd-76/11"],   # Temas Varios O.D.CD-76/11-PL,O.D. 62/2012 — Senate 09/05/2012 (Ley 26.743)
          "Identidad de Genero"),
         (["cupo laboral trans", "cupo laboral travesti",
             "acceso al empleo formal para personas travestis",

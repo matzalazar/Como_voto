@@ -49,6 +49,14 @@ REQUEST_DELAY = 0.3
 # Known range covers up to 5881 as of Feb 2026. We add margin.
 HCDN_MAX_ID = 6500
 
+# Some HCDN IDs return 500 from the plain /votacion/{id} URL but work with a
+# slug prefix.  Map id -> full URL path (slug + id) for those cases.
+HCDN_SLUG_OVERRIDES: dict[str, str] = {
+    "393": f"{HCDN_BASE}/votacion/derecho-identidad-genero-general/393",
+    "394": f"{HCDN_BASE}/votacion/derecho-identidad-genero-articulo-5/394",
+    "395": f"{HCDN_BASE}/votacion/derecho-identidad-genero-articulo-11/395",
+}
+
 # Senado periods to scrape
 # Available on website: 2005 onwards (earlier years have no digital records)
 SENADO_YEARS = list(range(2005, datetime.now().year + 1))
@@ -365,9 +373,13 @@ def scrape_hcdn_votacion(votacion_id: str) -> dict | None:
     Returns the data dict (raw format) or None if the page doesn't exist
     or has no voting data.
     """
-    url = f"{HCDN_BASE}/votacion/{votacion_id}"
+    url = HCDN_SLUG_OVERRIDES.get(votacion_id, f"{HCDN_BASE}/votacion/{votacion_id}")
     resp = fetch(url, delay=REQUEST_DELAY, raise_for_status=False)
     if resp is None or resp.status_code != 200:
+        # Fall back to slug override if plain URL failed (500/417)
+        if votacion_id not in HCDN_SLUG_OVERRIDES:
+            return None
+        # Already tried the override above; nothing more to do
         return None
     soup = BeautifulSoup(resp.text, "lxml")
 
