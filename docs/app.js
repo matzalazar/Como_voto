@@ -1087,6 +1087,32 @@ async function exportCardImage(cardId, btnId, mode = "copy") {
     card.style.width    = EXPORT_MAX_W + "px";
     card.style.maxWidth = EXPORT_MAX_W + "px";
     card.classList.add("exporting");
+
+    // Fix waffle label column width so all tile columns are left-aligned.
+    // Measure every law name with an offscreen canvas, find the widest, and
+    // pin every .waffle-law-label to that width before html2canvas renders.
+    const lawLabels = card.querySelectorAll(".waffle-law-label");
+    if (lawLabels.length > 0) {
+        const measCanvas = document.createElement("canvas");
+        const measCtx    = measCanvas.getContext("2d");
+        // Match the font used by .waffle-law-name inside .exporting
+        measCtx.font = "600 0.75rem/1.3 system-ui, sans-serif";
+        let maxPx = 0;
+        lawLabels.forEach(label => {
+            const nameEl = label.querySelector(".waffle-law-name");
+            const text   = nameEl ? nameEl.textContent : label.textContent;
+            const w = measCtx.measureText(text).width;
+            if (w > maxPx) maxPx = w;
+        });
+        // Add a small padding (6 px) and clamp to the allowed range (80–110 px)
+        const labelW = Math.min(110, Math.max(80, Math.ceil(maxPx) + 6));
+        lawLabels.forEach(label => {
+            label.style.width    = labelW + "px";
+            label.style.minWidth = labelW + "px";
+            label.style.maxWidth = labelW + "px";
+        });
+    }
+
     void card.offsetHeight; // force reflow before capture
 
     const mobile = isMobile();
@@ -1200,6 +1226,12 @@ async function exportCardImage(cardId, btnId, mode = "copy") {
         card.style.width    = prevWidth;
         card.style.maxWidth = prevMaxWidth;
         card.classList.remove("exporting");
+        // Remove the fixed widths so the live layout returns to normal
+        card.querySelectorAll(".waffle-law-label").forEach(label => {
+            label.style.width    = "";
+            label.style.minWidth = "";
+            label.style.maxWidth = "";
+        });
     }
 }
 
