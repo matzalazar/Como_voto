@@ -746,7 +746,6 @@ NAME_ALIASES: dict[str, str] = {
     "FELLNER, LILIANA":                    "FELLNER, LILIANA BEATRIZ",
     "FERNANDEZ DE KIRCHNER, CRISTINA E.":  "FERNANDEZ DE KIRCHNER, CRISTINA",
     "FILMUS, DANIEL":                      "FILMUS, DANIEL FERNANDO",
-    "GOMEZ, JOSE":                         "GOMEZ, JOSE ERNESTO",
     "GONZALEZ, PABLO G.":                  "GONZALEZ, PABLO GERARDO",
     "MARQUEZ, NADIA":                      "MARQUEZ, NADIA JUDITH",
     "MARTINEZ, ALFREDO":                   "MARTINEZ, ALFREDO ANSELMO",
