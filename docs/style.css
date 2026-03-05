@@ -1038,6 +1038,18 @@ body {
     margin-bottom: 0.5rem;
 }
 
+/* Force centered layout inside off-screen export cards regardless of viewport */
+#alignment-era-export-card .aec-chart-title {
+    text-align: center;
+}
+#alignment-era-export-card .leg-alignment-summary {
+    justify-content: center !important;
+    width: auto !important;
+}
+#alignment-era-export-card .alignment-grid-3col {
+    justify-content: center;
+}
+
 .aec-chart-img {
     width: 100%;
     display: block;
