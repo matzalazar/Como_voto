@@ -46,7 +46,7 @@ os.chdir(webdir)
 handler = http.server.SimpleHTTPRequestHandler
 socketserver.TCPServer.allow_reuse_address = True
 
-with socketserver.TCPServer(("", port), handler) as httpd:
+with socketserver.TCPServer(("127.0.0.1", port), handler) as httpd:
     print(f"Serving {webdir} at http://localhost:{port}")
     try:
         httpd.serve_forever()
