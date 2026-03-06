@@ -9,6 +9,7 @@ boots a :mod:`http.server` so the site can be previewed in a browser.
 """
 import http.server
 import socketserver
+import socket
 import os
 import sys
 import signal
@@ -44,9 +45,28 @@ if not os.path.isdir(webdir):
 
 os.chdir(webdir)
 handler = http.server.SimpleHTTPRequestHandler
-socketserver.TCPServer.allow_reuse_address = True
 
-with socketserver.TCPServer(("127.0.0.1", port), handler) as httpd:
+
+class DualStackServer(socketserver.TCPServer):
+    """Listens on both IPv4 and IPv6 loopback so ``localhost`` works on Windows
+    regardless of whether the browser resolves it to 127.0.0.1 or ::1."""
+    allow_reuse_address = True
+
+    def server_bind(self):
+        try:
+            self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.socket.bind(("::1", self.server_address[1], 0, 0))
+        except (OSError, AttributeError):
+            # Fall back to plain IPv4 if dual-stack is unavailable
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.socket.bind(("127.0.0.1", self.server_address[1]))
+        self.server_address = self.socket.getsockname()
+
+
+with DualStackServer(("::1", port), handler) as httpd:
     print(f"Serving {webdir} at http://localhost:{port}")
     try:
         httpd.serve_forever()
