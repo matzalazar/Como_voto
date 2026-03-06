@@ -44,7 +44,7 @@ Como_voto/
 │       ├── law_names.json
 │       └── legislators/  # Un archivo por legislador (con datos waffle)
 └── .github/workflows/
-    └── update-data.yml  # Actualización automática (lun + jue)
+    └── update-data.yml  # Actualización automática diaria
 ```
 
 ## 🚀 Uso
@@ -103,7 +103,7 @@ Y visitar `http://localhost:8000`
 
 ## 🔄 Actualización automática
 
-El GitHub Action `update-data.yml` se ejecuta automáticamente dos veces por semana, recolecta nuevas votaciones y actualiza el sitio.
+El GitHub Action `update-data.yml` se ejecuta automáticamente todos los días, recolecta nuevas votaciones y actualiza el sitio.
 
 ## 📜 Licencia
 
