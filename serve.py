@@ -57,17 +57,17 @@ class DualStackServer(socketserver.TCPServer):
             self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
             self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.socket.bind(("::1", self.server_address[1], 0, 0))
+            self.socket.bind(("::", self.server_address[1], 0, 0))
         except (OSError, AttributeError):
             # Fall back to plain IPv4 if dual-stack is unavailable
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.socket.bind(("127.0.0.1", self.server_address[1]))
+            self.socket.bind(("0.0.0.0", self.server_address[1]))
         self.server_address = self.socket.getsockname()
 
 
-with DualStackServer(("::1", port), handler) as httpd:
-    print(f"Serving {webdir} at http://localhost:{port}")
+with DualStackServer(("::", port), handler) as httpd:
+    print(f"Serving {webdir} at http://localhost:{port} (network: http://192.168.1.13:{port})")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

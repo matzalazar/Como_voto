@@ -192,6 +192,173 @@
         </div>
     </section>
 
+    <!-- ============ RANKINGS SECTION ============ -->
+    <section class="ranking-section" id="ranking-section">
+        <div class="container">
+            <!-- ---- Ranking 1: Cantidad de Votos ---- -->
+            <div class="ranking-title-row">
+                <div>
+                    <h2 class="section-title">🏆 Ranking de Legisladores por Cantidad de Votos</h2>
+                    <p class="section-desc">Ordená legisladores por votaciones, presentismo y ausencias</p>
+                </div>
+                <div class="ranking-export-row">
+                    <button class="btn-share" id="btn-copy-rv" title="Copiar imagen al portapapeles">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        Copiar imagen
+                    </button>
+                    <button class="btn-share" id="btn-download-rv" title="Descargar imagen">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Descargar
+                    </button>
+                </div>
+            </div>
+            <div class="ranking-controls">
+                <div class="ranking-controls-row">
+                    <div class="filter-group">
+                        <label for="rv-sort">Ordenar por</label>
+                        <select id="rv-sort">
+                            <option value="tv">Total de votaciones</option>
+                            <option value="pres">Presentismo %</option>
+                            <option value="aus">Ausencias</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="rv-order">Orden</label>
+                        <select id="rv-order">
+                            <option value="desc">Mayor a menor</option>
+                            <option value="asc">Menor a mayor</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="rv-chamber">Cámara</label>
+                        <select id="rv-chamber">
+                            <option value="">Todas</option>
+                            <option value="diputados">Diputados</option>
+                            <option value="senadores">Senadores</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="rv-coalition">Coalición</label>
+                        <select id="rv-coalition">
+                            <option value="">Todas</option>
+                            <option value="PJ">PJ / UxP</option>
+                            <option value="PRO">PRO / JxC / UCR</option>
+                            <option value="LLA">La Libertad Avanza</option>
+                            <option value="OTROS">Otros</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="rv-pagesize">Mostrar</label>
+                        <select id="rv-pagesize">
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="ranking-table-wrapper">
+                <table class="ranking-table" id="rv-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Legislador/a</th>
+                            <th>Bloque</th>
+                            <th class="ranking-sortable" data-col="tv">Votaciones</th>
+                            <th class="ranking-sortable" data-col="pres">Presentismo</th>
+                            <th class="ranking-sortable" data-col="aus">Ausencias</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rv-tbody"></tbody>
+                </table>
+            </div>
+            <div class="votes-pagination" id="rv-pagination"></div>
+
+            <!-- ---- Ranking 2: Afinidad Política ---- -->
+            <div class="ranking-title-row" style="margin-top:3rem">
+                <div>
+                    <h2 class="section-title">📊 Ranking por Afinidad Política</h2>
+                    <p class="section-desc">Cantidad de votos coincidentes con la mayoría de cada coalición (solo votaciones disputadas)</p>
+                </div>
+                <div class="ranking-export-row">
+                    <button class="btn-share" id="btn-copy-ra" title="Copiar imagen al portapapeles">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        Copiar imagen
+                    </button>
+                    <button class="btn-share" id="btn-download-ra" title="Descargar imagen">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Descargar
+                    </button>
+                </div>
+            </div>
+            <div class="ranking-controls">
+                <div class="ranking-controls-row">
+                    <div class="filter-group">
+                        <label for="ra-sort">Ordenar por</label>
+                        <select id="ra-sort">
+                            <option value="vpj">Votos con PJ</option>
+                            <option value="vucr">Votos con UCR</option>
+                            <option value="vpro">Votos con PRO</option>
+                            <option value="vlla">Votos con LLA</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="ra-order">Orden</label>
+                        <select id="ra-order">
+                            <option value="desc">Mayor a menor</option>
+                            <option value="asc">Menor a mayor</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="ra-chamber">Cámara</label>
+                        <select id="ra-chamber">
+                            <option value="">Todas</option>
+                            <option value="diputados">Diputados</option>
+                            <option value="senadores">Senadores</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="ra-coalition">Coalición</label>
+                        <select id="ra-coalition">
+                            <option value="">Todas</option>
+                            <option value="PJ">PJ / UxP</option>
+                            <option value="PRO">PRO / JxC / UCR</option>
+                            <option value="LLA">La Libertad Avanza</option>
+                            <option value="OTROS">Otros</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="ra-pagesize">Mostrar</label>
+                        <select id="ra-pagesize">
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="ranking-table-wrapper">
+                <table class="ranking-table" id="ra-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Legislador/a</th>
+                            <th>Bloque</th>
+                            <th class="ranking-sortable" data-col="vpj">PJ</th>
+                            <th class="ranking-sortable" data-col="vucr">UCR</th>
+                            <th class="ranking-sortable" data-col="vpro">PRO</th>
+                            <th class="ranking-sortable" data-col="vlla">LLA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ra-tbody"></tbody>
+                </table>
+            </div>
+            <div class="votes-pagination" id="ra-pagination"></div>
+        </div>
+    </section>
+
     <!-- ============ LEGISLATOR DETAIL ============ -->
     <section class="legislator-detail hidden" id="legislator-detail">
         <div class="container">

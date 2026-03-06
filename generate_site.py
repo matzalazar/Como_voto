@@ -1472,15 +1472,60 @@ def generate_site_data(legislators: dict, law_groups: dict):
     DOCS_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     # 1. Legislators index
+    SKIP_PATTERNS = ("NO INCORPORADO", "PENDIENTE DE INCORPORACION", "A DESIGNAR")
     leg_index = []
     for key, leg in sorted(legislators.items(), key=lambda x: x[0]):
+        name_upper = key.upper()
+        if any(p in name_upper for p in SKIP_PATTERNS) or key.strip(". ") == "":
+            continue
         alignment_pj  = compute_weighted_alignment(leg["yearly_alignment"], "PJ")
         alignment_pro = compute_weighted_alignment(leg["yearly_alignment"], "PRO")
         alignment_lla = compute_weighted_alignment(leg["yearly_alignment"], "LLA")
 
+        # Sum aligned vote counts per coalition (applying same year masks as
+        # compute_weighted_alignment so coalition values are null when the
+        # legislator didn't serve during that coalition's era).
+        def _sum_aligned(coalition, min_total=5):
+            total_w = 0
+            total_aligned = 0
+            for yr_str, data in leg["yearly_alignment"].items():
+                try:
+                    yint = int(yr_str)
+                except (ValueError, TypeError):
+                    continue
+                d = data.get(coalition, {})
+                tot = d.get("total", 0)
+                if tot < min_total:
+                    continue
+                if coalition == "UCR" and yint > 2014:
+                    continue
+                if coalition in ("JxC", "PRO") and not (2015 <= yint <= 2023):
+                    continue
+                if coalition == "LLA" and yint < 2024:
+                    continue
+                total_w += tot
+                total_aligned += d.get("aligned", 0)
+            return total_aligned if total_w > 0 else None
+
+        votes_pj  = _sum_aligned("PJ")
+        votes_ucr = _sum_aligned("UCR")
+        votes_pro = _sum_aligned("PRO")
+        votes_lla = _sum_aligned("LLA")
+
         total_votes = sum(
             s.get("total", 0) for s in leg["yearly_stats"].values()
         )
+
+        # Compute presentismo, ausencias, abstenciones for ranking
+        # PRESIDENTE counts as present (not absent), so: present = total - ausente
+        total_ausente = sum(
+            s.get("AUSENTE", 0) for s in leg["yearly_stats"].values()
+        )
+        total_abstencion = sum(
+            s.get("ABSTENCION", 0) for s in leg["yearly_stats"].values()
+        )
+        total_present = total_votes - total_ausente
+        presentismo_pct = round(total_present / total_votes * 100, 1) if total_votes > 0 else None
 
         chambers = sorted(set(leg["chambers"]))
         chamber_display = (
@@ -1499,8 +1544,15 @@ def generate_site_data(legislators: dict, law_groups: dict):
             "apj": alignment_pj,
             "apro": alignment_pro,
             "alla": alignment_lla,
+            "vpj": votes_pj,
+            "vucr": votes_ucr,
+            "vpro": votes_pro,
+            "vlla": votes_lla,
             "tv": total_votes,
             "ph": leg.get("photo", ""),
+            "pres": presentismo_pct,
+            "aus": total_ausente,
+            "abst": total_abstencion,
         })
 
     save_json(DOCS_DATA_DIR / "legislators.json", leg_index)
@@ -1601,22 +1653,13 @@ def generate_site_data(legislators: dict, law_groups: dict):
         waffle_list = []
         for gk, wg in waffle_groups.items():
             # Ensure at least one vote is marked g:True so the waffle always
-            # has a prominent "summary" tile.  EN PARTICULAR votes whose EN
-            # GENERAL companion is absent (not scraped, or in a different
-            # session) would otherwise leave the row with no highlighted tile.
-            # In that case we synthesise a virtual AUSENTE EN GENERAL tile so
-            # the row always has a clearly-marked summary tile rather than
-            # mis-promoting an article vote.
+            # has a prominent "summary" tile.  If only one votación exists,
+            # promote it to "En General".  For multi-vote groups without an
+            # EN GENERAL companion, leave as-is (no fake AUSENTE).
             if not any(v["g"] for v in wg["votes"]):
-                first = wg["votes"][0] if wg["votes"] else {}
-                wg["votes"].insert(0, {
-                    "v": "AUSENTE",
-                    "al": "En General",
-                    "t": "Sin registro de votación en general",
-                    "vid": None,
-                    "ch": first.get("ch", ""),
-                    "g": True,
-                })
+                if len(wg["votes"]) == 1:
+                    # Single votación without En General label: promote it
+                    wg["votes"][0]["g"] = True
 
             # pick first available vote URL to act as law link
             law_url = ""
@@ -1733,17 +1776,15 @@ def generate_site_data(legislators: dict, law_groups: dict):
     save_json(DOCS_DATA_DIR / "law_names.json", sorted(law_names_set))
     log.info(f"Generated {len(law_names_set)} unique law names")
 
-    # 5. Global stats
+    # 5. Global stats  (use leg_index count to exclude placeholder entries)
     stats = {
         "last_updated": datetime.now().isoformat(),
-        "total_legislators": len(legislators),
+        "total_legislators": len(leg_index),
         "total_diputados": sum(
-            1 for l in legislators.values()
-            if "diputados" in l.get("chambers", [l["chamber"]])
+            1 for e in leg_index if "diputados" in (e.get("c") or "")
         ),
         "total_senadores": sum(
-            1 for l in legislators.values()
-            if "senadores" in l.get("chambers", [l["chamber"]])
+            1 for e in leg_index if "senadores" in (e.get("c") or "")
         ),
         "total_votaciones_diputados": len(votaciones_summary["diputados"]),
         "total_votaciones_senadores": len(votaciones_summary["senadores"]),
