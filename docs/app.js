@@ -1103,6 +1103,156 @@ const isMobile = () =>
     window.matchMedia("(pointer: coarse)").matches;
 
 /**
+ * Populate an export-card header element with the legislator's photo, name,
+ * chamber label, party and province.  Returns the generated HTML string.
+ */
+function populateExportHeader(headerEl, d) {
+    const chambers = d.chambers || [d.chamber];
+    const chamberLabel = chambers.length > 1
+        ? "Dip. + Sen."
+        : chambers[0] === "diputados" ? "Diputado/a" : "Senador/a";
+    const photoHtml = d.photo
+        ? `<img src="${d.photo}" class="aec-photo" alt="" crossorigin="anonymous">`
+        : `<div class="aec-photo-placeholder"></div>`;
+    headerEl.innerHTML = `
+        <div class="aec-header-inner">
+            ${photoHtml}
+            <div class="aec-info">
+                <div class="aec-name">${escapeHtml(d.name)}</div>
+                <div class="aec-meta">${chamberLabel}&ensp;&middot;&ensp;${escapeHtml(shortPartyName(d.bloc))}&ensp;&middot;&ensp;${escapeHtml(d.province)}</div>
+            </div>
+        </div>`;
+}
+
+/**
+ * Shared capture-and-export logic used by all simple export-card functions.
+ * Handles html2canvas rendering, clipboard/download dispatch (with mobile
+ * fallback), button state management, and hiding the card in `finally`.
+ *
+ * @param {object} opts
+ * @param {HTMLElement} opts.card            – the off-screen card element
+ * @param {HTMLElement} opts.btn             – the button that triggered the action
+ * @param {string}      opts.originalText    – btn.innerHTML to restore afterwards
+ * @param {string}      opts.filename        – download filename (without path)
+ * @param {'copy'|'download'} opts.mode
+ * @param {HTMLElement} [opts.photoContainer] – element containing img.aec-photo to wait for
+ */
+async function captureAndExport({ card, btn, originalText, filename, mode, photoContainer }) {
+    btn.innerHTML = "⏳ Generando...";
+    btn.disabled  = true;
+
+    const mobile = isMobile();
+
+    function triggerDl(blob) {
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement("a");
+        a.href     = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    try {
+        const photoImg = (photoContainer || card).querySelector("img.aec-photo");
+        if (photoImg && !photoImg.complete) {
+            await new Promise((res) => { photoImg.onload = res; photoImg.onerror = res; });
+        }
+        const canvas = await html2canvas(card, {
+            backgroundColor: "#ffffff", scale: 3, useCORS: true, logging: false,
+        });
+        const blob = await new Promise((res, rej) =>
+            canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
+
+        if (mode === "download") {
+            triggerDl(blob);
+            btn.innerHTML = "✓ Descargado!";
+        } else {
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+                btn.innerHTML = "✓ Copiado!";
+            } catch (e) {
+                if (mobile) {
+                    triggerDl(blob);
+                    btn.innerHTML = "✓ Descargado!";
+                } else {
+                    console.error("Clipboard write failed:", e);
+                    btn.innerHTML = "Error al copiar";
+                }
+            }
+        }
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+    } catch (err) {
+        console.error("Error exporting card:", err);
+        btn.innerHTML = "Error :(";
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+    } finally {
+        card.style.display = "none";
+    }
+}
+
+/**
+ * Render a Chart.js chart to an off-screen canvas at export resolution.
+ * Returns a data-URL string (PNG).
+ */
+function renderChartForExport(chartInstance, opts = {}) {
+    const EXPORT_W = 1080;
+    const EXPORT_H = 540;
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width  = EXPORT_W;
+    offCanvas.height = EXPORT_H;
+
+    const cfg = chartInstance.config;
+    const datasets = cfg.data.datasets.map((ds) => {
+        const copy = { ...ds };
+        if (opts.pointRadius != null)      copy.pointRadius      = opts.pointRadius;
+        if (opts.pointHoverRadius != null)  copy.pointHoverRadius = opts.pointHoverRadius;
+        return copy;
+    });
+
+    const legendLabels = {
+        ...cfg.options.plugins.legend?.labels,
+        font: { size: opts.legendFontSize || 22 },
+        padding: 20,
+    };
+    if (opts.legendBoxWidth != null) {
+        legendLabels.boxWidth  = opts.legendBoxWidth;
+        legendLabels.boxHeight = opts.legendBoxHeight ?? opts.legendBoxWidth;
+    }
+
+    const chartOpts = {
+        animation: false,
+        responsive: false,
+        maintainAspectRatio: false,
+        layout: cfg.options.layout,
+        plugins: {
+            legend: { ...cfg.options.plugins.legend, labels: legendLabels },
+            tooltip: { enabled: false },
+        },
+        scales: {
+            x: {
+                ...cfg.options.scales?.x,
+                ticks: { ...cfg.options.scales?.x?.ticks, font: { size: opts.tickFontSize || 20 }, maxRotation: 45, minRotation: 45 },
+            },
+            y: {
+                ...cfg.options.scales?.y,
+                ticks: { ...cfg.options.scales?.y?.ticks, font: { size: opts.tickFontSize || 20 } },
+            },
+        },
+    };
+    if (opts.interactionMode) chartOpts.interaction = { mode: opts.interactionMode };
+
+    const offChart = new Chart(offCanvas, {
+        type: cfg.type,
+        data: { labels: cfg.data.labels, datasets },
+        options: chartOpts,
+    });
+    offChart.resize(EXPORT_W, EXPORT_H);
+    const dataUrl = offCanvas.toDataURL("image/png", 1);
+    offChart.destroy();
+    return dataUrl;
+}
+
+/**
  * Export a DOM card as a PNG image.
  * @param {string} cardId  - id of the element to capture
  * @param {string} btnId   - id of the button that triggered the action
@@ -1352,85 +1502,21 @@ async function exportLegHeaderCard(btnId, mode) {
     card.style.display = "block";
     void card.offsetHeight;
 
-    btn.innerHTML = "⏳ Generando...";
-    btn.disabled  = true;
-
-    const mobile = isMobile();
-
-    function triggerDl(blob) {
-        const url = URL.createObjectURL(blob);
-        const a   = document.createElement("a");
-        a.href     = url;
-        a.download = `como_voto_encabezado.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-
-    try {
-        const photoImg = innerEl.querySelector("img.aec-photo");
-        if (photoImg && !photoImg.complete) {
-            await new Promise((res) => { photoImg.onload = res; photoImg.onerror = res; });
-        }
-        const canvas = await html2canvas(card, {
-            backgroundColor: "#ffffff", scale: 3, useCORS: true, logging: false,
-        });
-        const blob = await new Promise((res, rej) =>
-            canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
-
-        if (mode === "download") {
-            triggerDl(blob);
-            btn.innerHTML = "✓ Descargado!";
-        } else {
-            try {
-                await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-                btn.innerHTML = "✓ Copiado!";
-            } catch (e) {
-                if (mobile) {
-                    triggerDl(blob);
-                    btn.innerHTML = "✓ Descargado!";
-                } else {
-                    console.error("Clipboard write failed:", e);
-                    btn.innerHTML = "Error al copiar";
-                }
-            }
-        }
-        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
-    } catch (err) {
-        console.error("Error exporting leg header card:", err);
-        btn.innerHTML = "Error :(";
-        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
-    } finally {
-        card.style.display = "none";
-    }
+    await captureAndExport({ card, btn, originalText, filename: "como_voto_alineamiento_coaliciones.png", mode, photoContainer: innerEl });
 }
-async function copyLegHeaderImage()     { await exportLegHeaderCard("btn-copy-leg-header",     "copy"); }
-async function downloadLegHeaderImage() { await exportLegHeaderCard("btn-download-leg-header", "download"); }
+async function copyAlignmentEraImage()     { await exportLegHeaderCard("btn-copy-alignment-era",     "copy"); }
+async function downloadAlignmentEraImage() { await exportLegHeaderCard("btn-download-alignment-era", "download"); }
 
 // ── Info card (presentismo + mandatos) ──────────────────────────────────────
 async function exportInfoCard(btnId, mode) {
     if (!currentDetail) return;
-    const btn      = document.getElementById(btnId);
-    const card     = document.getElementById("info-export-card");
-    const headerEl = document.getElementById("info-export-header");
+    const btn       = document.getElementById(btnId);
+    const card      = document.getElementById("info-export-card");
+    const headerEl  = document.getElementById("info-export-header");
     const contentEl = document.getElementById("info-export-content");
     const originalText = btn.innerHTML;
 
-    const d = currentDetail;
-    const chambers = d.chambers || [d.chamber];
-    const chamberLabel = chambers.length > 1
-        ? "Dip. + Sen."
-        : chambers[0] === "diputados" ? "Diputado/a" : "Senador/a";
-    const photoHtml = d.photo
-        ? `<img src="${d.photo}" class="aec-photo" alt="" crossorigin="anonymous">`
-        : `<div class="aec-photo-placeholder"></div>`;
-    headerEl.innerHTML = `
-        <div class="aec-header-inner">
-            ${photoHtml}
-            <div class="aec-info">
-                <div class="aec-name">${d.name}</div>
-                <div class="aec-meta">${chamberLabel}&ensp;&middot;&ensp;${shortPartyName(d.bloc)}&ensp;&middot;&ensp;${d.province}</div>
-            </div>
-        </div>`;
+    populateExportHeader(headerEl, currentDetail);
 
     // Clone the live stats + terms content into the export card
     const liveStats  = document.querySelector(".leg-info-stats-row");
@@ -1442,211 +1528,20 @@ async function exportInfoCard(btnId, mode) {
     card.style.display = "block";
     void card.offsetHeight;
 
-    btn.innerHTML = "⏳ Generando...";
-    btn.disabled  = true;
-
-    const mobile = isMobile();
-
-    function triggerDl(blob) {
-        const url = URL.createObjectURL(blob);
-        const a   = document.createElement("a");
-        a.href     = url;
-        a.download = `como_voto_mandatos.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-
-    try {
-        const photoImg = headerEl.querySelector("img.aec-photo");
-        if (photoImg && !photoImg.complete) {
-            await new Promise((res) => { photoImg.onload = res; photoImg.onerror = res; });
-        }
-        const canvas = await html2canvas(card, {
-            backgroundColor: "#ffffff", scale: 3, useCORS: true, logging: false,
-        });
-        const blob = await new Promise((res, rej) =>
-            canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
-
-        if (mode === "download") {
-            triggerDl(blob);
-            btn.innerHTML = "✓ Descargado!";
-        } else {
-            try {
-                await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-                btn.innerHTML = "✓ Copiado!";
-            } catch (e) {
-                if (mobile) {
-                    triggerDl(blob);
-                    btn.innerHTML = "✓ Descargado!";
-                } else {
-                    console.error("Clipboard write failed:", e);
-                    btn.innerHTML = "Error al copiar";
-                }
-            }
-        }
-        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
-    } catch (err) {
-        console.error("Error exporting info card:", err);
-        btn.innerHTML = "Error :(";
-        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
-    } finally {
-        card.style.display = "none";
-    }
+    await captureAndExport({ card, btn, originalText, filename: "como_voto_mandatos.png", mode, photoContainer: headerEl });
 }
 async function copyInfoCardImage()     { await exportInfoCard("btn-copy-info-card",     "copy"); }
 async function downloadInfoCardImage() { await exportInfoCard("btn-download-info-card", "download"); }
 
-// ── Alignment era card (Alineamiento Político) ───────────────────────
-async function exportAlignmentEraCard(btnId, mode) {
-    if (!currentDetail) return;
-    const btn       = document.getElementById(btnId);
-    const card      = document.getElementById("alignment-era-export-card");
-    const headerEl  = document.getElementById("alignment-era-export-header");
-    const contentEl = document.getElementById("alignment-era-export-content");
-    const originalText = btn.innerHTML;
 
-    const d = currentDetail;
-    const chambers = d.chambers || [d.chamber];
-    const chamberLabel = chambers.length > 1
-        ? "Dip. + Sen."
-        : chambers[0] === "diputados" ? "Diputado/a" : "Senador/a";
-    const photoHtml = d.photo
-        ? `<img src="${d.photo}" class="aec-photo" alt="" crossorigin="anonymous">`
-        : `<div class="aec-photo-placeholder"></div>`;
-    headerEl.innerHTML = `
-        <div class="aec-header-inner">
-            ${photoHtml}
-            <div class="aec-info">
-                <div class="aec-name">${d.name}</div>
-                <div class="aec-meta">${chamberLabel}&ensp;&middot;&ensp;${shortPartyName(d.bloc)}&ensp;&middot;&ensp;${d.province}</div>
-            </div>
-        </div>`;
-
-    // Clone the live alignment summary content into the export card
-    const liveContent = document.getElementById("leg-alignment-summary");
-    contentEl.innerHTML = "";
-    if (liveContent) contentEl.appendChild(liveContent.cloneNode(true));
-
-    card.style.display = "block";
-    void card.offsetHeight;
-
-    btn.innerHTML = "⏳ Generando...";
-    btn.disabled  = true;
-
-    const mobile = isMobile();
-
-    function triggerDl(blob) {
-        const url = URL.createObjectURL(blob);
-        const a   = document.createElement("a");
-        a.href     = url;
-        a.download = `como_voto_alineamiento_coaliciones.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-
-    try {
-        const photoImg = headerEl.querySelector("img.aec-photo");
-        if (photoImg && !photoImg.complete) {
-            await new Promise((res) => { photoImg.onload = res; photoImg.onerror = res; });
-        }
-        const canvas = await html2canvas(card, {
-            backgroundColor: "#ffffff", scale: 3, useCORS: true, logging: false,
-        });
-        const blob = await new Promise((res, rej) =>
-            canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
-
-        if (mode === "download") {
-            triggerDl(blob);
-            btn.innerHTML = "✓ Descargado!";
-        } else {
-            try {
-                await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-                btn.innerHTML = "✓ Copiado!";
-            } catch (e) {
-                if (mobile) {
-                    triggerDl(blob);
-                    btn.innerHTML = "✓ Descargado!";
-                } else {
-                    console.error("Clipboard write failed:", e);
-                    btn.innerHTML = "Error al copiar";
-                }
-            }
-        }
-        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
-    } catch (err) {
-        console.error("Error exporting alignment era card:", err);
-        btn.innerHTML = "Error :(";
-        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
-    } finally {
-        card.style.display = "none";
-    }
-}
-async function copyAlignmentEraImage()     { await exportAlignmentEraCard("btn-copy-alignment-era",     "copy"); }
-async function downloadAlignmentEraImage() { await exportAlignmentEraCard("btn-download-alignment-era", "download"); }
 
 // ── Alignment chart card ────────────────────────────────────────────────────
 // We can't simply resize the live chart-card: Chart.js renders onto a canvas
 // at a fixed pixel size and html2canvas will capture that raw pixel buffer,
 // producing a cut-off image when the wrapper is narrowed. Instead we build a
 // dedicated off-screen export card that:
-//   1. Embeds the chart via chartAlignment.toBase64Image() (a clean data URL)
+//   1. Embeds the chart via a rendered data-URL image
 //   2. Prepends a header with the legislator's photo + name + meta
-/** Render the alignment chart to an offscreen canvas at a fixed export size.
- * This ensures the exported image always has a good aspect ratio regardless
- * of how wide the live chart is on-screen.
- * Returns a data URL.
- */
-function renderAlignmentForExport() {
-    const EXPORT_W = 1080;  // 360px card × scale:3
-    const EXPORT_H = 540;   // ~2:1 ratio, matches old half-width card proportions
-    const offCanvas = document.createElement("canvas");
-    offCanvas.width  = EXPORT_W;
-    offCanvas.height = EXPORT_H;
-
-    const cfg = chartAlignment.config;
-    const offChart = new Chart(offCanvas, {
-        type: cfg.type,
-        data: {
-            labels: cfg.data.labels,
-            datasets: cfg.data.datasets.map((ds) => ({ ...ds, pointRadius: 8, pointHoverRadius: 10 })),
-        },
-        options: {
-            animation: false,
-            responsive: false,
-            maintainAspectRatio: false,
-            layout: cfg.options.layout,
-            plugins: {
-                legend: {
-                    ...cfg.options.plugins.legend,
-                    labels: {
-                        ...cfg.options.plugins.legend?.labels,
-                        font: { size: 28 },
-                        boxWidth: 9,
-                        boxHeight: 9,
-                        padding: 20,
-                    },
-                },
-                tooltip: { enabled: false },
-            },
-            scales: {
-                x: {
-                    ...cfg.options.scales?.x,
-                    ticks: { ...cfg.options.scales?.x?.ticks, font: { size: 24 }, maxRotation: 45, minRotation: 45 },
-                },
-                y: {
-                    ...cfg.options.scales?.y,
-                    ticks: { ...cfg.options.scales?.y?.ticks, font: { size: 24 } },
-                },
-            },
-            interaction: { mode: "none" },
-        },
-    });
-    offChart.resize(EXPORT_W, EXPORT_H);
-
-    const dataUrl = offCanvas.toDataURL("image/png", 1);
-    offChart.destroy();
-    return dataUrl;
-}
 
 async function exportAlignmentCard(btnId, mode) {
     if (!chartAlignment || !currentDetail) return;
@@ -1656,134 +1551,23 @@ async function exportAlignmentCard(btnId, mode) {
     const imgEl    = document.getElementById("alignment-export-img");
     const originalText = btn.innerHTML;
 
-    // Populate header
-    const d = currentDetail;
-    const chambers = d.chambers || [d.chamber];
-    const chamberLabel = chambers.length > 1
-        ? "Dip. + Sen."
-        : chambers[0] === "diputados" ? "Diputado/a" : "Senador/a";
-    const photoHtml = d.photo
-        ? `<img src="${d.photo}" class="aec-photo" alt="" crossorigin="anonymous">`
-        : `<div class="aec-photo-placeholder"></div>`;
-    headerEl.innerHTML = `
-        <div class="aec-header-inner">
-            ${photoHtml}
-            <div class="aec-info">
-                <div class="aec-name">${d.name}</div>
-                <div class="aec-meta">${chamberLabel}&ensp;&middot;&ensp;${shortPartyName(d.bloc)}&ensp;&middot;&ensp;${d.province}</div>
-            </div>
-        </div>`;
+    populateExportHeader(headerEl, currentDetail);
 
-    // Render chart at a fixed export size (independent of the live canvas width)
-    imgEl.src = renderAlignmentForExport();
+    imgEl.src = renderChartForExport(chartAlignment, {
+        legendFontSize: 28, tickFontSize: 24,
+        pointRadius: 8, pointHoverRadius: 10,
+        legendBoxWidth: 9, legendBoxHeight: 9,
+        interactionMode: "none",
+    });
 
-    // Reveal card off-screen for capture
     card.style.display = "block";
     void card.offsetHeight;
 
-    btn.innerHTML = "⏳ Generando...";
-    btn.disabled  = true;
-
-    const mobile = isMobile();
-
-    function triggerDl(blob) {
-        const url = URL.createObjectURL(blob);
-        const a   = document.createElement("a");
-        a.href     = url;
-        a.download = `como_voto_alineamiento.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-
-    try {
-        // Wait for the photo (cross-origin) to finish loading before capturing
-        const photoImg = headerEl.querySelector("img.aec-photo");
-        if (photoImg && !photoImg.complete) {
-            await new Promise((res) => { photoImg.onload = res; photoImg.onerror = res; });
-        }
-
-        const canvas = await html2canvas(card, {
-            backgroundColor: "#ffffff", scale: 3, useCORS: true, logging: false,
-        });
-        const blob = await new Promise((res, rej) =>
-            canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
-
-        if (mode === "download") {
-            triggerDl(blob);
-            btn.innerHTML = "✓ Descargado!";
-        } else {
-            try {
-                await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-                btn.innerHTML = "✓ Copiado!";
-            } catch (e) {
-                if (mobile) {
-                    triggerDl(blob);
-                    btn.innerHTML = "✓ Descargado!";
-                } else {
-                    console.error("Clipboard write failed:", e);
-                    btn.innerHTML = "Error al copiar";
-                }
-            }
-        }
-        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
-    } catch (err) {
-        console.error("Error exporting alignment chart:", err);
-        btn.innerHTML = "Error :(";
-        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
-    } finally {
-        card.style.display = "none";
-    }
+    await captureAndExport({ card, btn, originalText, filename: "como_voto_alineamiento.png", mode, photoContainer: headerEl });
 }
 
 async function copyAlignmentImage()     { await exportAlignmentCard("btn-copy-alignment",     "copy"); }
 async function downloadAlignmentImage() { await exportAlignmentCard("btn-download-alignment", "download"); }
-
-function renderYearlyForExport() {
-    const EXPORT_W = 1080;
-    const EXPORT_H = 540;
-    const offCanvas = document.createElement("canvas");
-    offCanvas.width  = EXPORT_W;
-    offCanvas.height = EXPORT_H;
-
-    const cfg = chartYearly.config;
-    const offChart = new Chart(offCanvas, {
-        type: cfg.type,
-        data: {
-            labels: cfg.data.labels,
-            datasets: cfg.data.datasets.map((ds) => ({ ...ds })),
-        },
-        options: {
-            animation: false,
-            responsive: false,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    ...cfg.options.plugins.legend,
-                    labels: {
-                        ...cfg.options.plugins.legend?.labels,
-                        font: { size: 22 },
-                        padding: 20,
-                    },
-                },
-                tooltip: { enabled: false },
-            },
-            scales: {
-                x: {
-                    ...cfg.options.scales?.x,
-                    ticks: { ...cfg.options.scales?.x?.ticks, font: { size: 20 }, maxRotation: 45, minRotation: 45 },
-                },
-                y: {
-                    ...cfg.options.scales?.y,
-                    ticks: { ...cfg.options.scales?.y?.ticks, font: { size: 20 } },
-                },
-            },
-        },
-    });
-    offChart.resize(EXPORT_W, EXPORT_H);
-    const dataUrl = offCanvas.toDataURL("image/png", 1);
-    offChart.destroy();
-    return dataUrl;
-}
 
 async function exportYearlyCard(btnId, mode) {
     if (!chartYearly || !currentDetail) return;
@@ -1793,77 +1577,16 @@ async function exportYearlyCard(btnId, mode) {
     const imgEl    = document.getElementById("yearly-export-img");
     const originalText = btn.innerHTML;
 
-    const d = currentDetail;
-    const chambers = d.chambers || [d.chamber];
-    const chamberLabel = chambers.length > 1
-        ? "Dip. + Sen."
-        : chambers[0] === "diputados" ? "Diputado/a" : "Senador/a";
-    const photoHtml = d.photo
-        ? `<img src="${d.photo}" class="aec-photo" alt="" crossorigin="anonymous">`
-        : `<div class="aec-photo-placeholder"></div>`;
-    headerEl.innerHTML = `
-        <div class="aec-header-inner">
-            ${photoHtml}
-            <div class="aec-info">
-                <div class="aec-name">${d.name}</div>
-                <div class="aec-meta">${chamberLabel}&ensp;&middot;&ensp;${shortPartyName(d.bloc)}&ensp;&middot;&ensp;${d.province}</div>
-            </div>
-        </div>`;
+    populateExportHeader(headerEl, currentDetail);
 
-    imgEl.src = renderYearlyForExport();
+    imgEl.src = renderChartForExport(chartYearly, {
+        legendFontSize: 22, tickFontSize: 20,
+    });
+
     card.style.display = "block";
     void card.offsetHeight;
 
-    btn.innerHTML = "⏳ Generando...";
-    btn.disabled  = true;
-
-    const mobile = isMobile();
-
-    function triggerDl(blob) {
-        const url = URL.createObjectURL(blob);
-        const a   = document.createElement("a");
-        a.href     = url;
-        a.download = `como_voto_votaciones.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-
-    try {
-        const photoImg = headerEl.querySelector("img.aec-photo");
-        if (photoImg && !photoImg.complete) {
-            await new Promise((res) => { photoImg.onload = res; photoImg.onerror = res; });
-        }
-        const canvas = await html2canvas(card, {
-            backgroundColor: "#ffffff", scale: 3, useCORS: true, logging: false,
-        });
-        const blob = await new Promise((res, rej) =>
-            canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/png"));
-
-        if (mode === "download") {
-            triggerDl(blob);
-            btn.innerHTML = "✓ Descargado!";
-        } else {
-            try {
-                await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-                btn.innerHTML = "✓ Copiado!";
-            } catch (e) {
-                if (mobile) {
-                    triggerDl(blob);
-                    btn.innerHTML = "✓ Descargado!";
-                } else {
-                    console.error("Clipboard write failed:", e);
-                    btn.innerHTML = "Error al copiar";
-                }
-            }
-        }
-        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
-    } catch (err) {
-        console.error("Error exporting yearly chart:", err);
-        btn.innerHTML = "Error :(";
-        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
-    } finally {
-        card.style.display = "none";
-    }
+    await captureAndExport({ card, btn, originalText, filename: "como_voto_votaciones.png", mode, photoContainer: headerEl });
 }
 
 async function copyYearlyImage()     { await exportYearlyCard("btn-copy-yearly",     "copy"); }
@@ -2516,57 +2239,23 @@ function parseArgDate(dateStr) {
 
     // Stamp today's date on all export card footers once at load time
     const _exportDateStr = new Date().toISOString().slice(0, 10);
-    ["lhe-export-date", "align-export-date", "yearly-export-date", "info-export-date", "alignment-era-export-date"].forEach((id) => {
+    ["lhe-export-date", "align-export-date", "yearly-export-date", "info-export-date"].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.textContent = _exportDateStr;
     });
 
-    const btnCopyWaffle = document.getElementById("btn-copy-image");
-    if (btnCopyWaffle) btnCopyWaffle.addEventListener("click", copyWaffleImage);
-    const btnDownloadWaffle = document.getElementById("btn-download-image");
-    if (btnDownloadWaffle) btnDownloadWaffle.addEventListener("click", downloadWaffleImage);
-    const btnShareWaffle = document.getElementById("btn-share-tw");
-    if (btnShareWaffle) btnShareWaffle.addEventListener("click", shareTwitter);
-
-    // Wire legislator header image buttons
-    const btnCopyLegHeader = document.getElementById("btn-copy-leg-header");
-    if (btnCopyLegHeader) btnCopyLegHeader.addEventListener("click", copyLegHeaderImage);
-    const btnDownloadLegHeader = document.getElementById("btn-download-leg-header");
-    if (btnDownloadLegHeader) btnDownloadLegHeader.addEventListener("click", downloadLegHeaderImage);
-    const btnShareLegHeader = document.getElementById("btn-share-leg-header-tw");
-    if (btnShareLegHeader) btnShareLegHeader.addEventListener("click", shareTwitter);
-
-    // Wire alignment era card (Alineamiento Político) image buttons
-    const btnCopyAlignmentEra = document.getElementById("btn-copy-alignment-era");
-    if (btnCopyAlignmentEra) btnCopyAlignmentEra.addEventListener("click", copyAlignmentEraImage);
-    const btnDownloadAlignmentEra = document.getElementById("btn-download-alignment-era");
-    if (btnDownloadAlignmentEra) btnDownloadAlignmentEra.addEventListener("click", downloadAlignmentEraImage);
-    const btnShareAlignmentEra = document.getElementById("btn-share-alignment-era-tw");
-    if (btnShareAlignmentEra) btnShareAlignmentEra.addEventListener("click", shareTwitter);
-
-    // Wire info card (presentismo + mandatos) image buttons
-    const btnCopyInfoCard = document.getElementById("btn-copy-info-card");
-    if (btnCopyInfoCard) btnCopyInfoCard.addEventListener("click", copyInfoCardImage);
-    const btnDownloadInfoCard = document.getElementById("btn-download-info-card");
-    if (btnDownloadInfoCard) btnDownloadInfoCard.addEventListener("click", downloadInfoCardImage);
-    const btnShareInfoCard = document.getElementById("btn-share-info-card-tw");
-    if (btnShareInfoCard) btnShareInfoCard.addEventListener("click", shareTwitter);
-
-    // Wire alignment chart image buttons
-    const btnCopyAlignment = document.getElementById("btn-copy-alignment");
-    if (btnCopyAlignment) btnCopyAlignment.addEventListener("click", copyAlignmentImage);
-    const btnDownloadAlignment = document.getElementById("btn-download-alignment");
-    if (btnDownloadAlignment) btnDownloadAlignment.addEventListener("click", downloadAlignmentImage);
-    const btnShareAlignment = document.getElementById("btn-share-alignment-tw");
-    if (btnShareAlignment) btnShareAlignment.addEventListener("click", shareTwitter);
-
-    // Wire yearly chart image buttons
-    const btnCopyYearly = document.getElementById("btn-copy-yearly");
-    if (btnCopyYearly) btnCopyYearly.addEventListener("click", copyYearlyImage);
-    const btnDownloadYearly = document.getElementById("btn-download-yearly");
-    if (btnDownloadYearly) btnDownloadYearly.addEventListener("click", downloadYearlyImage);
-    const btnShareYearly = document.getElementById("btn-share-yearly-tw");
-    if (btnShareYearly) btnShareYearly.addEventListener("click", shareTwitter);
+    // Wire all export card button groups (copy / download / share)
+    [
+        { copy: "btn-copy-image",          download: "btn-download-image",          share: "btn-share-tw",               copyFn: copyWaffleImage,          downloadFn: downloadWaffleImage },
+        { copy: "btn-copy-alignment-era",   download: "btn-download-alignment-era", share: "btn-share-alignment-era-tw", copyFn: copyAlignmentEraImage,    downloadFn: downloadAlignmentEraImage },
+        { copy: "btn-copy-info-card",       download: "btn-download-info-card",     share: "btn-share-info-card-tw",     copyFn: copyInfoCardImage,        downloadFn: downloadInfoCardImage },
+        { copy: "btn-copy-alignment",       download: "btn-download-alignment",     share: "btn-share-alignment-tw",     copyFn: copyAlignmentImage,       downloadFn: downloadAlignmentImage },
+        { copy: "btn-copy-yearly",          download: "btn-download-yearly",        share: "btn-share-yearly-tw",        copyFn: copyYearlyImage,          downloadFn: downloadYearlyImage },
+    ].forEach(({ copy, download, share, copyFn, downloadFn }) => {
+        const c = document.getElementById(copy);     if (c) c.addEventListener("click", copyFn);
+        const d = document.getElementById(download); if (d) d.addEventListener("click", downloadFn);
+        const s = document.getElementById(share);    if (s) s.addEventListener("click", shareTwitter);
+    });
 
     // Wire vote popup close handlers
     const popupOverlay = document.getElementById("vote-popup-overlay");

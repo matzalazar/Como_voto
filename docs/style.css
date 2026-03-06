@@ -61,7 +61,7 @@ body {
 
 /* ====== HEADER ====== */
 .header {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    background: url('header_mainpage.png') center/cover no-repeat;
     color: white;
     padding: 2rem 0;
     text-align: center;
@@ -75,7 +75,7 @@ body {
 }
 
 .logo {
-    font-size: 2rem;
+    font-size: 2.75rem;
     font-weight: 700;
     display: flex;
     align-items: center;
@@ -87,9 +87,9 @@ body {
 }
 
 .subtitle {
-    color: rgba(255,255,255,0.7);
+    color: #ffffff;
     font-size: 1rem;
-    font-weight: 300;
+    font-weight: 700;
 }
 
 /* ====== SEARCH ====== */
@@ -368,13 +368,7 @@ body {
     gap: 1.5rem;
 }
 
-.leg-header-actions {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-bottom: 1.5rem;
-    margin-top: -1rem;
-}
+
 
 .leg-header-left {
     display: flex;
@@ -1038,17 +1032,7 @@ body {
     margin-bottom: 0.5rem;
 }
 
-/* Force centered layout inside off-screen export cards regardless of viewport */
-#alignment-era-export-card .aec-chart-title {
-    text-align: center;
-}
-#alignment-era-export-card .leg-alignment-summary {
-    justify-content: center !important;
-    width: auto !important;
-}
-#alignment-era-export-card .alignment-grid-3col {
-    justify-content: center;
-}
+
 
 .aec-chart-img {
     width: 100%;
@@ -1247,37 +1231,6 @@ body {
     border-color: var(--color-primary);
 }
 
-/* Make waffle (Leyes destacadas) pagination match votes pagination */
-#waffle-pagination {
-    display: flex;
-    justify-content: center;
-    gap: 0.25rem;
-    margin-top: 1rem;
-    flex-wrap: wrap;
-}
-
-#waffle-pagination button {
-    padding: 0.4rem 0.75rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    font-family: inherit;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all var(--transition);
-}
-
-#waffle-pagination button:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-}
-
-#waffle-pagination button.active {
-    background: var(--color-primary);
-    color: white;
-    border-color: var(--color-primary);
-}
-
 /* ====== LAW SEARCH SECTION ====== */
 .law-search-section {
     padding: 2rem 0;
@@ -1328,33 +1281,6 @@ body {
     display: flex;
     gap: 1rem;
     justify-content: center;
-}
-
-.law-filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-
-.law-filter-group label {
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: var(--color-text-secondary);
-}
-
-.law-filter-group select {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.9rem;
-    font-family: inherit;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
-    cursor: pointer;
-    outline: none;
-}
-
-.law-filter-group select:focus {
-    border-color: var(--color-primary);
 }
 
 /* ====== MULTI-SELECT DROPDOWN WIDGET ====== */
@@ -1920,15 +1846,15 @@ body {
 
 /* ====== FOOTER ====== */
 .footer {
-    background: var(--color-text);
-    color: rgba(255,255,255,0.7);
+    background: url('header_mainpage.png') center/cover no-repeat;
+    color: #ffffff;
     padding: 2rem 0;
     text-align: center;
     font-size: 0.85rem;
 }
 
 .footer a {
-    color: rgba(255,255,255,0.9);
+    color: #ffffff;
 }
 
 .footer p + p {
@@ -2128,7 +2054,7 @@ body {
         gap: 0.5rem;
     }
 
-    .law-filter-group select {
+    .law-filter-row .filter-group select {
         width: 100%;
     }
 
@@ -2220,15 +2146,6 @@ body {
     }
 
     .waffle-actions .btn-share {
-        flex: 1;
-        justify-content: center;
-    }
-
-    .leg-header-actions {
-        width: 100%;
-    }
-
-    .leg-header-actions .btn-share {
         flex: 1;
         justify-content: center;
     }
