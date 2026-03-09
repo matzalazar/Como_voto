@@ -38,7 +38,7 @@ except FileNotFoundError:
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
 
-webdir = os.path.join(os.path.dirname(__file__), "docs")
+webdir = os.path.join(os.path.dirname(__file__), "..", "docs")
 if not os.path.isdir(webdir):
     print(f"docs/ directory not found at {webdir}")
     sys.exit(1)

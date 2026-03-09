@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-PPWP4VDNTV"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-PPWP4VDNTV');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>¿Cómo Votó? - Votaciones del Congreso Argentino</title>
@@ -66,8 +75,9 @@
                     <select id="filter-coalition">
                         <option value="">Todas</option>
                         <option value="PJ">PJ / Unión por la Patria</option>
-                        <option value="PRO">PRO / JxC / UCR</option>
-                        <option value="LLA">La Libertad Avanza</option>
+                        <option value="UCR">UCR / ARI</option>
+                        <option value="PRO">JxC / PRO / UCR</option>
+                        <option value="LLA">LLA / PRO</option>
                         <option value="OTROS">Otros</option>
                     </select>
                 </div>
@@ -242,8 +252,9 @@
                         <select id="rv-coalition">
                             <option value="">Todas</option>
                             <option value="PJ">PJ / UxP</option>
-                            <option value="PRO">PRO / JxC / UCR</option>
-                            <option value="LLA">La Libertad Avanza</option>
+                            <option value="UCR">UCR / ARI</option>
+                            <option value="PRO">JxC / PRO / UCR</option>
+                            <option value="LLA">LLA / PRO</option>
                             <option value="OTROS">Otros</option>
                         </select>
                     </div>
@@ -264,7 +275,7 @@
                         <tr>
                             <th>#</th>
                             <th>Legislador/a</th>
-                            <th>Bloque</th>
+                            <th>Bloque actual</th>
                             <th class="ranking-sortable" data-col="tv">Votaciones</th>
                             <th class="ranking-sortable" data-col="pres">Presentismo</th>
                             <th class="ranking-sortable" data-col="aus">Ausencias</th>
@@ -278,8 +289,8 @@
             <!-- ---- Ranking 2: Afinidad Política ---- -->
             <div class="ranking-title-row" style="margin-top:3rem">
                 <div>
-                    <h2 class="section-title">📊 Ranking por Afinidad Política</h2>
-                    <p class="section-desc">Cantidad de votos coincidentes con la mayoría de cada coalición (solo votaciones disputadas)</p>
+                    <h2 class="section-title">📊 Ranking de mandatos por Afinidad Política</h2>
+                    <p class="section-desc">Cada fila corresponde a uno o más mandatos por legislador, agrupado según la coalición a la que pertenecía el partido o alianza cuya lista integró el legislador en la elección. Las cantidades de votos muestran afinidad con el voto mayoritario de cada coalición (sólo para votaciones divididas).</p>
                 </div>
                 <div class="ranking-export-row">
                     <button class="btn-share" id="btn-copy-ra" title="Copiar imagen al portapapeles">
@@ -319,12 +330,13 @@
                         </select>
                     </div>
                     <div class="filter-group">
-                        <label for="ra-coalition">Coalición</label>
+                        <label for="ra-coalition">Coalición por la que fue votado/a</label>
                         <select id="ra-coalition">
                             <option value="">Todas</option>
                             <option value="PJ">PJ / UxP</option>
-                            <option value="PRO">PRO / JxC / UCR</option>
-                            <option value="LLA">La Libertad Avanza</option>
+                            <option value="UCR">UCR / ARI</option>
+                            <option value="PRO">JxC / PRO / UCR</option>
+                            <option value="LLA">LLA / PRO</option>
                             <option value="OTROS">Otros</option>
                         </select>
                     </div>
@@ -345,7 +357,7 @@
                         <tr>
                             <th>#</th>
                             <th>Legislador/a</th>
-                            <th>Bloque</th>
+                            <th>Partido/Alianza</th>
                             <th class="ranking-sortable" data-col="vpj">PJ</th>
                             <th class="ranking-sortable" data-col="vucr">UCR</th>
                             <th class="ranking-sortable" data-col="vpro">PRO</th>

@@ -387,6 +387,7 @@ body {
 .ranking-table .ranking-sortable {
     cursor: pointer;
     user-select: none;
+    text-align: right;
 }
 
 .ranking-table .ranking-sortable:hover {

@@ -593,14 +593,14 @@ let rvPage = 1, rvPageSize = 5, rvSortCol = "tv", rvSortAsc = false;
 // Ranking 2: Alignment
 let raPage = 1, raPageSize = 5, raSortCol = "vpj", raSortAsc = false;
 
-function renderRankingTable(prefix, sortCol, asc, columns, cellRenderer) {
+function renderRankingTable(prefix, sortCol, asc, columns, cellRenderer, dataSource) {
     const chamberFilter = document.getElementById(prefix + "-chamber")?.value || "";
     const coalitionFilter = document.getElementById(prefix + "-coalition")?.value || "";
     const pageSize = prefix === "rv" ? rvPageSize : raPageSize;
     let page_ref = prefix === "rv" ? { get: () => rvPage, set: v => { rvPage = v; } }
                                     : { get: () => raPage, set: v => { raPage = v; } };
 
-    let filtered = legislatorsData.filter(l => {
+    let filtered = (dataSource || legislatorsData).filter(l => {
         if (l.tv < 100) return false;
         if (chamberFilter && !l.c.includes(chamberFilter)) return false;
         if (coalitionFilter && l.co !== coalitionFilter) return false;
@@ -698,14 +698,38 @@ function renderRankingVotes() {
     );
 }
 
+const COALITION_LABELS = { PJ: "PJ / UxP", UCR: "UCR / ARI", PRO: "JxC / PRO / UCR", LLA: "LLA / PRO", OTROS: "Otros" };
+
 function renderRankingAlignment() {
     const fmt = v => v !== null && v !== undefined ? v : "–";
+    // Build mandato-level rows: one row per legislator × coalition in by_co
+    const expanded = [];
+    for (const l of legislatorsData) {
+        const byCo = l.by_co;
+        if (!byCo) continue;
+        for (const [co, vals] of Object.entries(byCo)) {
+            expanded.push({
+                k: l.k,
+                n: l.n,
+                c: l.c,
+                p: l.p,
+                b: vals.b || l.b,
+                co: co,
+                vpj: vals.vpj,
+                vucr: vals.vucr,
+                vpro: vals.vpro,
+                vlla: vals.vlla,
+                tv: vals.tv,
+            });
+        }
+    }
     renderRankingTable("ra", raSortCol, raSortAsc,
         ["vpj", "vucr", "vpro", "vlla"],
         l => `<td class="ranking-cell-num">${fmt(l.vpj)}</td>
               <td class="ranking-cell-num">${fmt(l.vucr)}</td>
               <td class="ranking-cell-num">${fmt(l.vpro)}</td>
-              <td class="ranking-cell-num">${fmt(l.vlla)}</td>`
+              <td class="ranking-cell-num">${fmt(l.vlla)}</td>`,
+        expanded
     );
 }
 
@@ -726,7 +750,14 @@ function buildRankingExportTitle(prefix) {
     const coal = coalEl?.selectedOptions[0]?.textContent || "";
     let subtitle = "";
     if (chamberEl?.value) subtitle += chamber;
-    if (coalEl?.value) subtitle += (subtitle ? " · " : "") + coal;
+    if (coalEl?.value) {
+        if (prefix === "ra") {
+            // Second ranking: add "Votados/as por una lista de la coalición..." prefix
+            subtitle += (subtitle ? " · " : "") + `Votados/as por una lista de la coalición ${coal}`;
+        } else {
+            subtitle += (subtitle ? " · " : "") + coal;
+        }
+    }
     return {
         title: `Ranking por ${colLabel} ${dir}`,
         subtitle: subtitle || "Todos los legisladores",
@@ -773,7 +804,9 @@ async function exportRankingTable(prefix, mode) {
     // Bloque column (3rd) smaller
     clonedTable.querySelectorAll("td:nth-child(3), th:nth-child(3)").forEach(cell => { cell.style.fontSize = "9px"; });
     const rows = clonedTable.querySelectorAll("tbody tr");
-    for (let i = 5; i < rows.length; i++) rows[i].remove();
+    const curPageSize = prefix === "rv" ? rvPageSize : raPageSize;
+    const exportLimit = curPageSize <= 10 ? curPageSize : 10;
+    for (let i = exportLimit; i < rows.length; i++) rows[i].remove();
     card.appendChild(clonedTable);
 
     const footer = document.createElement("div");
@@ -1003,6 +1036,7 @@ function renderLegislatorDetail(data) {
     // Presentismo + terms info card
     const infoCard = document.getElementById("leg-info-card");
     const stats = data.yearly_stats || {};
+    const trailingAus = data.trailing_ausente || 0;
     const activeYears = Object.keys(stats).filter((y) => {
         const s = stats[y];
         return (s.AFIRMATIVO||0)+(s.NEGATIVO||0)+(s.ABSTENCION||0)+(s.AUSENTE||0) >= 5;
@@ -1013,7 +1047,9 @@ function renderLegislatorDetail(data) {
         totalV       += (s.total || 0);
         totalPresent += (s.AFIRMATIVO||0) + (s.NEGATIVO||0) + (s.ABSTENCION||0);
     }
-    const presentismoPct = totalV > 0 ? Math.round(totalPresent / totalV * 100) : null;
+    // Exclude trailing AUSENTE votes (post-departure absences)
+    const effectiveV = totalV - trailingAus;
+    const presentismoPct = effectiveV > 0 ? Math.round(totalPresent / effectiveV * 100) : null;
     document.getElementById("leg-presentismo").textContent =
         presentismoPct !== null ? presentismoPct + "\u00a0%" : "N/A";
 
@@ -1027,7 +1063,7 @@ function renderLegislatorDetail(data) {
     if (terms.length > 0) {
         const chLabel = (ch) => ch === "diputados" ? "Diputado/a" : "Senador/a";
         const chCls   = (ch) => ch === "diputados" ? "badge-diputados" : "badge-senadores";
-        const rows = terms.map((t) => {
+        const rows = terms.map((t, idx) => {
             const period = t.yf === t.yt ? t.yf : `${t.yf}\u2013${t.yt}`;
             // Per-term presentismo: sum yearly_stats for years within [yf, yt]
             let termV = 0, termPres = 0;
@@ -1037,7 +1073,10 @@ function renderLegislatorDetail(data) {
                 termV    += (s.total || 0);
                 termPres += (s.AFIRMATIVO||0) + (s.NEGATIVO||0) + (s.ABSTENCION||0);
             }
-            const tPct = termV > 0 ? Math.round(termPres / termV * 100) + "\u00a0%" : "N/A";
+            // For the last term, exclude trailing post-departure absences
+            const termTrail = (idx === terms.length - 1) ? trailingAus : 0;
+            const effTermV = termV - termTrail;
+            const tPct = effTermV > 0 ? Math.round(termPres / effTermV * 100) + "\u00a0%" : "N/A";
             return `<tr>
                 <td><span class="badge ${chCls(t.ch)}">${chLabel(t.ch)}</span></td>
                 <td>${period}</td>
@@ -1676,6 +1715,7 @@ async function exportLegHeaderCard(btnId, mode) {
 
     // Compute stats for export card
     const expStats = d.yearly_stats || {};
+    const expTrailingAus = d.trailing_ausente || 0;
     const expActiveYears = Object.keys(expStats).filter(y => {
         const s = expStats[y];
         return (s.AFIRMATIVO||0)+(s.NEGATIVO||0)+(s.ABSTENCION||0)+(s.AUSENTE||0) >= 5;
@@ -1686,7 +1726,8 @@ async function exportLegHeaderCard(btnId, mode) {
         expTotalV       += (s.total || 0);
         expTotalPresent += (s.AFIRMATIVO||0) + (s.NEGATIVO||0) + (s.ABSTENCION||0);
     }
-    const expPresText   = expTotalV > 0 ? Math.round(expTotalPresent / expTotalV * 100) + "\u00a0%" : "N/A";
+    const expEffV = expTotalV - expTrailingAus;
+    const expPresText   = expEffV > 0 ? Math.round(expTotalPresent / expEffV * 100) + "\u00a0%" : "N/A";
     const expTermsCount = (d.terms || []).length;
 
     innerEl.innerHTML = `
