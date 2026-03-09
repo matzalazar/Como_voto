@@ -4,11 +4,15 @@ import re
 import unicodedata
 from collections import defaultdict
 
-from scraper import classify_bloc
-
 from .data_loading import clean_date, extract_year
 from .laws import get_common_name
-from .normalization import NAME_ALIASES, normalize_name, normalize_province, normalize_vote
+from .normalization import (
+    NAME_ALIASES,
+    classify_bloc_mapped,
+    normalize_name,
+    normalize_province,
+    normalize_vote,
+)
 
 
 def compute_majority_vote(votes: list[dict], coalition: str) -> str:
@@ -24,7 +28,7 @@ def compute_majority_vote(votes: list[dict], coalition: str) -> str:
     wanted = {coalition_up} if coalition_up else set()
     coalition_votes = []
     for vote_row in votes:
-        coal = vote_row.get("coalition") or classify_bloc(vote_row.get("bloc", ""))
+        coal = vote_row.get("coalition") or classify_bloc_mapped(vote_row.get("bloc", ""))
         coal_up = _norm(coal)
         bloc_up = _norm(vote_row.get("bloc", ""))
         if coal_up in wanted or any(item in bloc_up for item in wanted):
@@ -65,7 +69,7 @@ def compute_combined_majority(votes: list[dict], coalitions: list[str]) -> str:
     wanted = set(_norm(coalition) for coalition in coalitions)
     coalition_votes = []
     for vote_row in votes:
-        coal = vote_row.get("coalition") or classify_bloc(vote_row.get("bloc", ""))
+        coal = vote_row.get("coalition") or classify_bloc_mapped(vote_row.get("bloc", ""))
         coal_up = _norm(coal)
         bloc_up = _norm(vote_row.get("bloc", ""))
         if coal_up in wanted or any(item in bloc_up for item in wanted):
@@ -242,14 +246,15 @@ def build_legislator_data(all_votaciones: list[dict], law_groups: dict) -> dict:
             name_key = NAME_ALIASES.get(name_key, name_key)
 
             if name_key not in legislators:
+                entry_bloc = vote_record.get("bloc", "")
                 legislators[name_key] = {
                     "name": name,
                     "name_key": name_key,
                     "chambers": [chamber],
                     "chamber": chamber,
-                    "bloc": vote_record.get("bloc", ""),
+                    "bloc": entry_bloc,
                     "province": normalize_province(vote_record.get("province", "")),
-                    "coalition": vote_record.get("coalition", classify_bloc(vote_record.get("bloc", ""))),
+                    "coalition": classify_bloc_mapped(entry_bloc),
                     "votes": [],
                     "yearly_stats": {},
                     "_yr_blocs": {},
@@ -273,7 +278,7 @@ def build_legislator_data(all_votaciones: list[dict], law_groups: dict) -> dict:
 
             leg["bloc"] = vote_record.get("bloc", leg["bloc"])
             leg["province"] = normalize_province(vote_record.get("province", leg["province"]))
-            leg["coalition"] = vote_record.get("coalition", leg["coalition"])
+            leg["coalition"] = classify_bloc_mapped(vote_record.get("bloc", leg.get("bloc", "")))
             leg["chamber"] = chamber
 
             norm_vote = normalize_vote(vote_record.get("vote", ""))

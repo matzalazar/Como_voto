@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from .common import DATA_DIR, log
 from .data_loading import attach_photos, load_all_votaciones_from_db, load_photo_maps
 from .export import generate_site_data
@@ -21,6 +23,17 @@ def main() -> None:
         return
 
     log.info(f"Loaded {len(all_votaciones)} votaciones total")
+
+    # Keep records in chronological order so each legislator's last-seen bloc
+    # matches their most recent political affiliation.
+    def _votacion_sort_key(votacion: dict) -> str:
+        match = re.search(r"(\d{2})/(\d{2})/(\d{4})", votacion.get("date", ""))
+        if match:
+            return f"{match.group(3)}-{match.group(2)}-{match.group(1)}"
+        return "0000-00-00"
+
+    all_votaciones.sort(key=_votacion_sort_key)
+    log.info("Sorted votaciones chronologically")
 
     law_groups = build_law_groups(all_votaciones)
     log.info(f"Identified {len(law_groups)} law groups")

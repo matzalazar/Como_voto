@@ -1,14 +1,24 @@
 from __future__ import annotations
 
+import json
 import re
 import time
+import unicodedata
 from collections import defaultdict
 from datetime import datetime
 
-from .common import DOCS_DATA_DIR, log, save_json
+from .common import DATA_DIR, DOCS_DATA_DIR, log, save_json
 from .data_loading import clean_date, extract_year, load_all_votaciones_from_db, practical_year_range
 from .laws import get_common_name
-from .normalization import NAME_ALIASES, classify_bloc_party, extract_section_label, normalize_name, normalize_vote
+from .normalization import (
+    NAME_ALIASES,
+    classify_bloc_mapped,
+    classify_bloc_party,
+    extract_section_label,
+    load_bloc_coalition_map,
+    normalize_name,
+    normalize_vote,
+)
 
 _PARTY_KEYS = ("pj", "ucr", "pro", "lla", "cc", "oth")
 
@@ -181,8 +191,411 @@ def build_law_detail_data(law_groups: dict) -> tuple[list[dict], dict[int, dict]
     return laws, votes_by_year
 
 
+def _parse_vote_date(date_value: str) -> datetime:
+    """Parse vote dates in ``DD/MM/YYYY - HH:MM`` (or date-only) format."""
+    date_value = (date_value or "").strip()
+    try:
+        return datetime.strptime(date_value, "%d/%m/%Y - %H:%M")
+    except (ValueError, AttributeError):
+        try:
+            return datetime.strptime(date_value[:10], "%d/%m/%Y")
+        except (ValueError, AttributeError):
+            return datetime.min
+
+
+def _count_trailing_ausente(votes: list[dict]) -> int:
+    """Count AUSENTE votes that happen after the last active (non-AUSENTE) vote."""
+    if not votes:
+        return 0
+    non_ausente = [vote for vote in votes if vote.get("v") != "AUSENTE"]
+    if not non_ausente:
+        return 0
+    last_active_dt = max(_parse_vote_date(vote.get("d", "")) for vote in non_ausente)
+    return sum(
+        1
+        for vote in votes
+        if vote.get("v") == "AUSENTE" and _parse_vote_date(vote.get("d", "")) > last_active_dt
+    )
+
+
+# ---------------------------------------------------------------------------
+# Election data lookup for coalition classification
+# ---------------------------------------------------------------------------
+_ELECTION_INDEX: dict | None = None
+_ELECTION_YEARS_SORTED: list[int] = []
+
+
+def _strip_accents(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    return "".join(char for char in normalized if unicodedata.category(char) != "Mn")
+
+
+def _normalize_display_name(name: str) -> str:
+    """Normalize ``SURNAME, FIRSTNAME`` to a cleaner display style."""
+    if "," not in name:
+        return name
+    surname, _, first = name.partition(",")
+    first = first.strip()
+    if not first:
+        return name
+    particles = {"de", "del", "la", "las", "los", "el", "y", "e"}
+    words = first.split()
+    result = []
+    for index, word in enumerate(words):
+        if word.lower() in particles and index > 0:
+            result.append(word.lower())
+        else:
+            result.append(word.capitalize())
+    return f"{surname.upper()}, {' '.join(result)}"
+
+
+_BLOC_PARTICLES = {
+    "de",
+    "del",
+    "la",
+    "las",
+    "los",
+    "el",
+    "y",
+    "e",
+    "por",
+    "para",
+    "en",
+    "con",
+    "sin",
+    "al",
+    "su",
+}
+_BLOC_ACRONYMS = {
+    "PJ",
+    "UCR",
+    "PRO",
+    "ARI",
+    "GEN",
+    "UNEN",
+    "FIT",
+    "PTS",
+    "PO",
+    "MST",
+    "MID",
+    "MODIN",
+    "FREPASO",
+    "FORJA",
+    "UPT",
+    "SI",
+    "JSRN",
+}
+_ACCENT_MAP = {
+    "union": "Unión",
+    "civica": "Cívica",
+    "civico": "Cívico",
+    "produccion": "Producción",
+    "producción": "Producción",
+    "coalicion": "Coalición",
+    "rio": "Río",
+    "accion": "Acción",
+    "concertacion": "Concertación",
+    "integracion": "Integración",
+    "renovacion": "Renovación",
+    "innovacion": "Innovación",
+    "evolucion": "Evolución",
+    "democratico": "Democrático",
+    "democrata": "Demócrata",
+    "autonomia": "Autonomía",
+    "educacion": "Educación",
+    "inclusion": "Inclusión",
+    "energia": "Energía",
+    "republica": "República",
+    "soberania": "Soberanía",
+    "participacion": "Participación",
+    "tucuman": "Tucumán",
+    "cordoba": "Córdoba",
+    "dialogo": "Diálogo",
+}
+_UCR_SPLIT_KW = (
+    "ucr",
+    "radical",
+    "coalición cívica",
+    "coalicion civica",
+    "evolución",
+    "evolucion",
+    "democracia para siempre",
+)
+_PJ_TERM_KW = (
+    "justicialista",
+    "frente de todos",
+    "frente para la victoria",
+    "unión por la patria",
+    "union por la patria",
+    "frente renovador",
+    "peronismo",
+    "peronista",
+    "frente cívico por santiago",
+    "frente civico por santiago",
+    "movimiento popular neuquino",
+)
+_PRO_TERM_KW = (
+    "pro ",
+    "propuesta republicana",
+    "cambiemos",
+    "juntos por el cambio",
+)
+_LLA_TERM_KW = (
+    "la libertad avanza",
+    "libertad avanza",
+)
+_BLOC_ERA_OVERRIDES: dict[str, list[tuple[int, str]]] = {}
+
+
+def _restore_accents(word: str) -> str:
+    key = word.lower().rstrip(".,;:")
+    suffix = word[len(key) :]
+    if key in _ACCENT_MAP:
+        replacement = _ACCENT_MAP[key]
+        if word and word[0].isupper():
+            return replacement + suffix
+        return replacement[0].lower() + replacement[1:] + suffix
+    return word
+
+
+def _normalize_bloc_display(name: str) -> str:
+    """Normalize bloc name capitalization/accenting for UI display."""
+    if not name or not name.strip():
+        return name
+
+    name = name.replace(" -", " - ").replace("- ", " - ")
+    while "  " in name:
+        name = name.replace("  ", " ")
+
+    segments = name.split(" - ")
+    normalized_segments: list[str] = []
+    for segment in segments:
+        segment = segment.strip()
+        if not segment:
+            continue
+        letters = [char for char in segment if char.isalpha()]
+        if not letters:
+            normalized_segments.append(segment)
+            continue
+
+        upper_ratio = sum(1 for char in letters if char.isupper()) / len(letters)
+        if upper_ratio > 0.6:
+            words = []
+            for word in segment.split():
+                if "." in word and any(char.isalpha() for char in word):
+                    words.append(word.upper())
+                elif "-" in word:
+                    parts = word.split("-")
+                    words.append("-".join(part.capitalize() for part in parts))
+                else:
+                    words.append(word.capitalize())
+            segment = " ".join(words)
+
+        words = segment.split()
+        for index, word in enumerate(words):
+            if "-" in word and len(word) > 1:
+                parts = word.split("-")
+                for part_index, part in enumerate(parts):
+                    stripped_part = part.strip("()[].,")
+                    if stripped_part.upper() in _BLOC_ACRONYMS:
+                        parts[part_index] = part.upper()
+                    elif part and part[0].islower():
+                        parts[part_index] = part.capitalize()
+                    parts[part_index] = _restore_accents(parts[part_index])
+                words[index] = "-".join(parts)
+                continue
+
+            stripped = word.strip("()[].,")
+            if "." in stripped and any(char.isalpha() for char in stripped):
+                words[index] = word.upper()
+            elif stripped.upper() in _BLOC_ACRONYMS:
+                words[index] = word.upper()
+            elif index > 0 and stripped.lower() in _BLOC_PARTICLES and "." not in word:
+                words[index] = word.lower()
+            words[index] = _restore_accents(words[index])
+        normalized_segments.append(" ".join(words))
+
+    return " - ".join(normalized_segments)
+
+
+def _era_coalition(base_coalition: str, term_start_year: int) -> str:
+    if base_coalition == "PJ":
+        return "PJ"
+    if base_coalition == "UCR":
+        if term_start_year < 2015:
+            return "UCR"
+        if term_start_year < 2024:
+            return "PRO"
+        return "OTROS"
+    if base_coalition == "PRO":
+        if term_start_year < 2015:
+            return "OTROS"
+        if term_start_year < 2024:
+            return "PRO"
+        return "LLA"
+    if base_coalition == "LLA":
+        return "LLA"
+    return "OTROS"
+
+
+def _classify_bloc_for_term(bloc_name: str, year: int) -> str:
+    """Classify bloc into PJ/UCR/PRO/LLA/OTROS for mandate-era assignment."""
+    key = bloc_name.lower().strip()
+
+    if key in _BLOC_ERA_OVERRIDES:
+        for cutoff, coalition in sorted(_BLOC_ERA_OVERRIDES[key], reverse=True):
+            if year >= cutoff:
+                return coalition
+
+    mapping = load_bloc_coalition_map()
+    if key in mapping:
+        coalition = mapping[key]
+        if coalition == "PRO":
+            if any(keyword in key for keyword in _UCR_SPLIT_KW):
+                return "UCR"
+            return "PRO"
+        if coalition == "UCR":
+            return "UCR"
+        if coalition in ("PJ", "LLA"):
+            return coalition
+        return "OTROS"
+
+    if any(keyword in key for keyword in _PJ_TERM_KW):
+        return "PJ"
+    if any(keyword in key for keyword in _UCR_SPLIT_KW):
+        return "UCR"
+    if any(keyword in key for keyword in _PRO_TERM_KW):
+        return "PRO"
+    if any(keyword in key for keyword in _LLA_TERM_KW):
+        return "LLA"
+
+    fallback = classify_bloc_mapped(bloc_name)
+    if fallback == "PRO" and any(keyword in key for keyword in _UCR_SPLIT_KW):
+        return "UCR"
+    if fallback in ("PJ", "PRO", "LLA"):
+        return fallback
+    return "OTROS"
+
+
+def _norm_province(province: str) -> str:
+    normalized = _strip_accents(province.strip()).upper()
+    normalized = normalized.replace(".", "").replace(",", "")
+    if normalized in ("CABA", "CAPITAL FEDERAL", "CIUDAD AUTONOMA DE BUENOS AIRES"):
+        return "CAPITAL FEDERAL"
+    return normalized
+
+
+def _name_tokens(name: str) -> set[str]:
+    normalized = _strip_accents(name).upper().replace(",", " ")
+    tokens = set(normalized.split())
+    for token in ("DE", "DEL", "LA", "LOS", "LAS", "Y", "E", "S", "J"):
+        tokens.discard(token)
+    return {token for token in tokens if len(token) > 1}
+
+
+def _load_election_index() -> None:
+    global _ELECTION_INDEX, _ELECTION_YEARS_SORTED
+    if _ELECTION_INDEX is not None:
+        return
+
+    path = DATA_DIR / "election_legislators.json"
+    if not path.exists():
+        log.warning("election_legislators.json not found - run tools/scrape_elections.py")
+        _ELECTION_INDEX = {}
+        return
+
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            raw = json.load(handle)
+    except (json.JSONDecodeError, OSError) as exc:
+        log.warning(f"Failed to load election_legislators.json: {exc}")
+        _ELECTION_INDEX = {}
+        return
+
+    _ELECTION_INDEX = {}
+    years = set()
+    for year_str, data in raw.items():
+        year = int(year_str)
+        years.add(year)
+        for chamber in ("diputados", "senadores"):
+            for entry in data.get(chamber, []):
+                key = (year, _norm_province(entry["province"]), chamber)
+                tokens = _name_tokens(entry["name"])
+                if not tokens:
+                    continue
+                _ELECTION_INDEX.setdefault(key, []).append(
+                    {
+                        "tokens": tokens,
+                        "coalition": entry["coalition"],
+                        "name": entry["name"],
+                        "party_code": entry.get("party_code"),
+                        "suplente": entry.get("suplente", False),
+                    }
+                )
+
+    _ELECTION_YEARS_SORTED = sorted(years)
+    log.info(
+        f"Loaded election index: {len(raw)} years, "
+        f"{sum(len(values) for values in _ELECTION_INDEX.values())} candidates"
+    )
+
+
+def _find_election_year(term_start: int) -> int | None:
+    _load_election_index()
+    best = None
+    for election_year in _ELECTION_YEARS_SORTED:
+        if election_year <= term_start:
+            best = election_year
+    return best
+
+
+def _match_legislator_to_election(
+    name_key: str,
+    province: str,
+    chamber: str,
+    election_year: int,
+) -> dict | None:
+    _load_election_index()
+    if not _ELECTION_INDEX:
+        return None
+
+    key = (election_year, _norm_province(province), chamber)
+    candidates = _ELECTION_INDEX.get(key, [])
+    if not candidates:
+        return None
+
+    legislator_tokens = _name_tokens(name_key)
+    if not legislator_tokens:
+        return None
+
+    best_score = 0.0
+    best_match = None
+    for candidate in candidates:
+        candidate_tokens = candidate["tokens"]
+        shared = legislator_tokens & candidate_tokens
+        if not shared:
+            continue
+        score = len(shared) / min(len(legislator_tokens), len(candidate_tokens))
+        is_better = score > best_score or (
+            score == best_score
+            and best_match
+            and best_match.get("suplente")
+            and not candidate.get("suplente")
+        )
+        if is_better:
+            best_score = score
+            best_match = candidate
+
+    if best_score >= 0.6 and best_match:
+        return {
+            "coalition": best_match["coalition"],
+            "party_code": best_match.get("party_code"),
+        }
+    return None
+
+
 def compute_terms(leg: dict, min_votes: int = 5) -> list[dict]:
-    """Deriva períodos de mandato a partir de _yr_blocs + yearly_stats."""
+    """Derive term records from yearly bloc/province traces plus vote activity."""
     mandate_len = {"diputados": 4, "senadores": 6}
 
     yr_blocs = leg.get("_yr_blocs", {})
@@ -192,17 +605,14 @@ def compute_terms(leg: dict, min_votes: int = 5) -> list[dict]:
 
     for chamber, year_dict in yr_blocs.items():
         max_len = mandate_len.get(chamber, 6)
-
-        # Active years: >= min_votes total votes that year
         active = sorted(
-            int(year)
-            for year in year_dict
-            if yearly_stats.get(year, {}).get("total", 0) >= min_votes
+            int(year_str)
+            for year_str in year_dict
+            if yearly_stats.get(year_str, {}).get("total", 0) >= min_votes
         )
         if not active:
             continue
 
-        # Split into contiguous runs (gap > 2 = new service period)
         runs: list[list[int]] = []
         current = [active[0]]
         for year in active[1:]:
@@ -214,11 +624,11 @@ def compute_terms(leg: dict, min_votes: int = 5) -> list[dict]:
         runs.append(current)
 
         for run in runs:
-            i = 0
-            while i < len(run):
-                boundary = run[i] + max_len - 1
-                sub = [year for year in run[i:] if year <= boundary]
-                i += len(sub)
+            index = 0
+            while index < len(run):
+                boundary = run[index] + max_len
+                sub = [year for year in run[index:] if year <= boundary]
+                index += len(sub)
 
                 bloc_totals: dict[str, int] = {}
                 for year in sub:
@@ -228,22 +638,93 @@ def compute_terms(leg: dict, min_votes: int = 5) -> list[dict]:
 
                 prov_totals: dict[str, int] = {}
                 for year in sub:
-                    for prov, count in yr_provinces.get(chamber, {}).get(str(year), {}).items():
-                        prov_totals[prov] = prov_totals.get(prov, 0) + count
-                dominant_prov = max(prov_totals, key=prov_totals.get) if prov_totals else leg.get("province", "")
+                    for province, count in yr_provinces.get(chamber, {}).get(str(year), {}).items():
+                        prov_totals[province] = prov_totals.get(province, 0) + count
+                dominant_province = max(prov_totals, key=prov_totals.get) if prov_totals else leg.get("province", "")
+
+                election_year = _find_election_year(min(sub))
+                name_key = leg.get("name_key", "")
+                electoral_coalition = None
+                if election_year:
+                    match = _match_legislator_to_election(name_key, dominant_province, chamber, election_year)
+                    if match:
+                        if match.get("coalition") and match["coalition"] != "OTROS":
+                            electoral_coalition = match["coalition"]
+                        elif match.get("party_code") and match["party_code"] != "OTROS":
+                            electoral_coalition = match["party_code"]
+                if not electoral_coalition:
+                    base = _classify_bloc_for_term(_normalize_bloc_display(dominant_bloc), max(sub))
+                    electoral_coalition = _era_coalition(base, max(sub))
 
                 terms.append(
                     {
                         "ch": chamber,
                         "yf": min(sub),
                         "yt": max(sub),
-                        "b": dominant_bloc,
-                        "p": dominant_prov,
+                        "b": _normalize_bloc_display(dominant_bloc),
+                        "p": dominant_province,
+                        "co_electoral": electoral_coalition,
                     }
                 )
 
     terms.sort(key=lambda term: (term["yf"], term["ch"]))
+    for term in terms:
+        base = _classify_bloc_for_term(term["b"], term["yt"])
+        term["co"] = _era_coalition(base, term["yt"])
     return terms
+
+
+def compute_per_coalition_alignment(
+    terms: list[dict],
+    yearly_alignment: dict,
+    yearly_stats: dict,
+    min_total: int = 5,
+) -> dict[str, dict]:
+    """Alignment vote sums restricted to years served under each coalition."""
+    coalition_years: dict[str, set[int]] = {}
+    coalition_bloc: dict[str, str] = {}
+    for term in terms:
+        coalition = term.get("co_electoral") or term["co"]
+        coalition_years.setdefault(coalition, set())
+        for year in range(term["yf"], term["yt"] + 1):
+            coalition_years[coalition].add(year)
+        coalition_bloc[coalition] = term["b"]
+
+    result: dict[str, dict] = {}
+    for coalition, years in coalition_years.items():
+        sums = {"vpj": 0, "vucr": 0, "vpro": 0, "vlla": 0, "tv": 0}
+        has_any = False
+        for year_str, data in yearly_alignment.items():
+            try:
+                year = int(year_str)
+            except (ValueError, TypeError):
+                continue
+            if year not in years:
+                continue
+            for label, field in [("PJ", "vpj"), ("UCR", "vucr"), ("PRO", "vpro"), ("LLA", "vlla")]:
+                aligned_data = data.get(label, {})
+                total = aligned_data.get("total", 0)
+                if total < min_total:
+                    continue
+                if label == "UCR" and year > 2014:
+                    continue
+                if label in ("JxC", "PRO") and not (2015 <= year <= 2023):
+                    continue
+                if label == "LLA" and year < 2024:
+                    continue
+                sums[field] += aligned_data.get("aligned", 0)
+                has_any = True
+        for year_str, stats in yearly_stats.items():
+            try:
+                year = int(year_str)
+            except (ValueError, TypeError):
+                continue
+            if year in years:
+                sums["tv"] += stats.get("total", 0)
+        if has_any or sums["tv"] > 0:
+            sums["b"] = _normalize_bloc_display(coalition_bloc.get(coalition, ""))
+            result[coalition] = sums
+    return result
 
 
 def compute_weighted_alignment(yearly_alignment: dict, coalition: str, min_total: int = 5) -> float | None:
@@ -320,11 +801,14 @@ def generate_site_data(legislators: dict, law_groups: dict) -> None:
         if any(pattern in name_upper for pattern in skip_patterns) or key.strip(". ") == "":
             continue
 
+        # Compute terms up front so the index can include coalition-specific totals.
+        terms = compute_terms(leg)
+        leg["_terms"] = terms
+
         alignment_pj = compute_weighted_alignment(leg["yearly_alignment"], "PJ")
         alignment_pro = compute_weighted_alignment(leg["yearly_alignment"], "PRO")
         alignment_lla = compute_weighted_alignment(leg["yearly_alignment"], "LLA")
 
-        # Sum aligned vote counts per coalition (applying same year masks)
         def _sum_aligned(coalition: str, min_total: int = 5):
             total_weight = 0
             total_aligned = 0
@@ -355,12 +839,14 @@ def generate_site_data(legislators: dict, law_groups: dict) -> None:
         votes_lla = _sum_aligned("LLA")
 
         total_votes = sum(stats.get("total", 0) for stats in leg["yearly_stats"].values())
+        trailing_ausente = _count_trailing_ausente(leg.get("votes", []))
 
-        # PRESIDENTE counts as present (not absent), so: present = total - ausente
         total_ausente = sum(stats.get("AUSENTE", 0) for stats in leg["yearly_stats"].values())
         total_abstencion = sum(stats.get("ABSTENCION", 0) for stats in leg["yearly_stats"].values())
-        total_present = total_votes - total_ausente
-        presentismo_pct = round(total_present / total_votes * 100, 1) if total_votes > 0 else None
+        effective_total = total_votes - trailing_ausente
+        effective_ausente = total_ausente - trailing_ausente
+        total_present = effective_total - effective_ausente
+        presentismo_pct = round(total_present / effective_total * 100, 1) if effective_total > 0 else None
 
         chambers = sorted(set(leg["chambers"]))
         chamber_display = (
@@ -371,14 +857,25 @@ def generate_site_data(legislators: dict, law_groups: dict) -> None:
             else leg["chamber"]
         )
 
+        by_co = compute_per_coalition_alignment(terms, leg["yearly_alignment"], leg["yearly_stats"])
+
+        if terms:
+            latest_year = max(term["yt"] for term in terms)
+            current_bloc_base = _classify_bloc_for_term(_normalize_bloc_display(leg["bloc"]), latest_year)
+            coalition_display = _era_coalition(current_bloc_base, latest_year)
+        else:
+            coalition_display = leg["coalition"]
+
+        display_name = _normalize_display_name(leg["name"])
+
         leg_index.append(
             {
                 "k": key,
-                "n": leg["name"],
+                "n": display_name,
                 "c": chamber_display,
-                "b": leg["bloc"],
+                "b": _normalize_bloc_display(leg["bloc"]),
                 "p": leg["province"],
-                "co": leg["coalition"],
+                "co": coalition_display,
                 "apj": alignment_pj,
                 "apro": alignment_pro,
                 "alla": alignment_lla,
@@ -391,6 +888,7 @@ def generate_site_data(legislators: dict, law_groups: dict) -> None:
                 "pres": presentismo_pct,
                 "aus": total_ausente,
                 "abst": total_abstencion,
+                "by_co": by_co,
             }
         )
 
@@ -509,16 +1007,25 @@ def generate_site_data(legislators: dict, law_groups: dict) -> None:
             )
         waffle_list.sort(key=lambda item: (-(item["year"] or 0), item["name"]))
 
+        leg_terms = leg.get("_terms") or compute_terms(leg)
+        if leg_terms:
+            detail_coalition = leg_terms[-1]["co"]
+        else:
+            detail_coalition = leg["coalition"]
+
+        display_name = _normalize_display_name(leg["name"])
+
         detail = {
-            "name": leg["name"],
+            "name": display_name,
             "name_key": key,
             "photo": leg.get("photo", ""),
             "chambers": sorted(set(leg["chambers"])),
             "chamber": leg["chamber"],
-            "bloc": leg["bloc"],
+            "bloc": _normalize_bloc_display(leg["bloc"]),
             "province": leg["province"],
-            "coalition": leg["coalition"],
+            "coalition": detail_coalition,
             "yearly_stats": leg["yearly_stats"],
+            "trailing_ausente": _count_trailing_ausente(leg.get("votes", [])),
             "yearly_alignment": yearly_alignment_pct,
             "alignment": {coal: compute_weighted_alignment(leg["yearly_alignment"], coal) for coal in ["PJ", "UCR", "PRO", "JxC", "LLA"]},
             "era_alignment": {
@@ -535,7 +1042,7 @@ def generate_site_data(legislators: dict, law_groups: dict) -> None:
                     "LLA": compute_era_alignment(leg["yearly_alignment"], "LLA", 2024, 2026),
                 },
             },
-            "terms": compute_terms(leg),
+            "terms": leg_terms,
             "votes": leg["votes"],
             "laws": waffle_list,
         }

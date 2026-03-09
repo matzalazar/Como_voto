@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
+
+from .common import DATA_DIR, log
 
 # ---------------------------------------------------------------------------
 # Party classification for law-search breakdown
@@ -53,6 +56,97 @@ _LLA_PARTY_KW = ["la libertad avanza", "libertad avanza"]
 _CC_PARTY_KW = ["coalición cívica", "coalicion civica", "a.r.i"]
 
 _PRO_WORD_RE = re.compile(r"\bpro\b")
+
+# ---------------------------------------------------------------------------
+# Bloc -> coalition mapping (for legislator alignment tracking)
+# ---------------------------------------------------------------------------
+_BLOC_COALITION_MAP: dict[str, str] | None = None
+
+_PJ_COALITION_KW = [
+    "justicialista",
+    "frente de todos",
+    "frente para la victoria",
+    "unión por la patria",
+    "union por la patria",
+    "frente renovador",
+    "peronismo",
+    "peronista",
+    "frente cívico por santiago",
+    "frente civico por santiago",
+    "movimiento popular neuquino",
+    "bloque justicialista",
+    "pj ",
+]
+_PRO_COALITION_KW = [
+    "pro ",
+    "propuesta republicana",
+    "cambiemos",
+    "juntos por el cambio",
+    "juntos por el cambio federal",
+    "ucr",
+    "unión cívica radical",
+    "union civica radical",
+    "coalición cívica",
+    "coalicion civica",
+    "evolución radical",
+    "evolucion radical",
+]
+_LLA_COALITION_KW = [
+    "la libertad avanza",
+]
+
+
+def load_bloc_coalition_map() -> dict[str, str]:
+    """Load bloc->coalition map from JSON, caching results in memory."""
+    global _BLOC_COALITION_MAP
+    if _BLOC_COALITION_MAP is not None:
+        return _BLOC_COALITION_MAP
+
+    map_path = DATA_DIR / "bloc_coalition_map.json"
+    if not map_path.exists():
+        log.warning("bloc_coalition_map.json not found - using keyword fallback")
+        _BLOC_COALITION_MAP = {}
+        return _BLOC_COALITION_MAP
+
+    try:
+        with open(map_path, "r", encoding="utf-8") as handle:
+            _BLOC_COALITION_MAP = json.load(handle)
+    except (json.JSONDecodeError, OSError) as exc:
+        log.warning(f"Failed to load bloc_coalition_map.json: {exc}")
+        _BLOC_COALITION_MAP = {}
+        return _BLOC_COALITION_MAP
+
+    log.info(f"Loaded bloc coalition map with {len(_BLOC_COALITION_MAP)} entries")
+    return _BLOC_COALITION_MAP
+
+
+def _load_bloc_coalition_map() -> dict[str, str]:
+    """Backward-compatible alias for callers using the old helper name."""
+    return load_bloc_coalition_map()
+
+
+def _classify_bloc_coalition_fallback(bloc_name: str) -> str:
+    """Keyword fallback used when a bloc is missing from the mapping file."""
+    name = bloc_name.lower().strip()
+    for keyword in _PJ_COALITION_KW:
+        if keyword in name:
+            return "PJ"
+    for keyword in _PRO_COALITION_KW:
+        if keyword in name:
+            return "PRO"
+    for keyword in _LLA_COALITION_KW:
+        if keyword in name:
+            return "LLA"
+    return "OTROS"
+
+
+def classify_bloc_mapped(bloc_name: str) -> str:
+    """Classify bloc names using the full mapping with keyword fallback."""
+    mapping = load_bloc_coalition_map()
+    key = bloc_name.lower().strip()
+    if key in mapping:
+        return mapping[key]
+    return _classify_bloc_coalition_fallback(bloc_name)
 
 # Regex helpers for extracting section labels from votación titles
 _REF_SUFFIX_RE = re.compile(
